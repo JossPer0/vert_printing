@@ -159,6 +159,7 @@
           <label>Artwork upload<input name="artwork" type="file" /></label>
           <label class="full">Project details<textarea name="details" rows="5" placeholder="Tell us about artwork, sizes, material, deadline and delivery."></textarea></label>
           <label class="honeypot" aria-hidden="true">Leave this field blank<input name="website" tabindex="-1" autocomplete="off" /></label>
+          <div class="turnstile-field full"><div class="cf-turnstile" data-sitekey="0x4AAAAAAEEbOXRF_g_FNQHQ" data-action="turnstile-spin-v2"></div></div>
           <button class="button primary full" type="submit">Request My Quote</button>
           <p class="form-note" id="form-note" role="status"></p>
         </form>
@@ -180,6 +181,7 @@
     </main>
 
     <footer class="site-footer"><p>&copy; 2026 Vert Printing. All rights reserved.</p><div><a href="https://www.facebook.com/vertprinting">Facebook</a><a href="https://www.instagram.com/vertprinting">Instagram</a><a href="https://wa.me/27662456511">WhatsApp</a></div></footer>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script src="script.js"></script>
   </body>
 </html>

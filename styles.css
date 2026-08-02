@@ -631,3 +631,19 @@ h3 {
 .quote-form input[type="file"] {
   padding: 10px;
 }
+.turnstile-field {
+  min-height: 65px;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.form-note[data-type="success"] {
+  color: #0f766e;
+}
+
+.form-note[data-type="error"] {
+  color: #b42318;
+}

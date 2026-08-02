@@ -15,31 +15,53 @@ siteNav?.addEventListener("click", (event) => {
   }
 });
 
-quoteForm?.addEventListener("submit", (event) => {
+function setFormState(message, type = "info") {
+  if (!formNote) return;
+  formNote.textContent = message;
+  formNote.dataset.type = type;
+}
+
+quoteForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  const data = new FormData(quoteForm);
-  if (data.get("website")) return;
+  const submitButton = quoteForm.querySelector('button[type="submit"]');
+  const formData = new FormData(quoteForm);
 
-  const subject = `Quote request: ${data.get("service") || "Vert Printing"}`;
-  const body = [
-    `Name: ${data.get("name") || ""}`,
-    `Business or organisation: ${data.get("business") || ""}`,
-    `Email: ${data.get("email") || ""}`,
-    `Phone or WhatsApp: ${data.get("phone") || ""}`,
-    `Preferred contact method: ${data.get("contact_method") || ""}`,
-    `Service required: ${data.get("service") || ""}`,
-    `Product or item: ${data.get("product") || ""}`,
-    `Quantity: ${data.get("quantity") || ""}`,
-    `Required date: ${data.get("required_date") || ""}`,
-    "",
-    "Project details:",
-    data.get("details") || "",
-    "",
-    "Artwork: Please attach artwork or logo files to this email if available.",
-  ].join("\n");
+  if (formData.get("website")) return;
 
-  const mailto = `mailto:info@vertprinting.co.za?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  window.location.href = mailto;
-  formNote.textContent = "Thanks. Your email app should open with the quote details prepared. Please attach artwork files before sending if needed.";
+  const turnstileToken = formData.get("cf-turnstile-response");
+  if (!turnstileToken) {
+    setFormState("Please complete the human verification before sending your quote request.", "error");
+    return;
+  }
+
+  const payload = Object.fromEntries(formData.entries());
+  payload.turnstileToken = turnstileToken;
+  delete payload["cf-turnstile-response"];
+  delete payload.artwork;
+
+  submitButton.disabled = true;
+  setFormState("Sending your quote request...", "info");
+
+  try {
+    const response = await fetch("/api/quote", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || "Your quote request could not be sent. Please try again.");
+    }
+
+    quoteForm.reset();
+    window.turnstile?.reset();
+    setFormState(result.message || "Thanks — your quote request has been received.", "success");
+  } catch (error) {
+    window.turnstile?.reset();
+    setFormState(error.message || "Your quote request could not be sent. Please email or WhatsApp us directly.", "error");
+  } finally {
+    submitButton.disabled = false;
+  }
 });
