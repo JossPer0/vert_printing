@@ -158,7 +158,7 @@
           <label>Preferred contact method<select name="contact_method"><option>Email</option><option>Phone</option><option>WhatsApp</option></select></label>
           <label>Artwork upload<input name="artwork" type="file" /></label>
           <label class="full">Project details<textarea name="details" rows="5" placeholder="Tell us about artwork, sizes, material, deadline and delivery."></textarea></label>
-          <label class="honeypot" aria-hidden="true">Leave this field blank<input name="website" tabindex="-1" autocomplete="off" /></label>
+          <div class="honeypot" aria-hidden="true"><label for="website-field">Website</label><input id="website-field" name="website" tabindex="-1" autocomplete="off" /></div>
           <div class="turnstile-field full"><div class="cf-turnstile" data-sitekey="0x4AAAAAAEEbOXRF_g_FNQHQ" data-action="turnstile-spin-v2"></div></div>
           <button class="button primary full" type="submit">Request My Quote</button>
           <p class="form-note" id="form-note" role="status"></p>
