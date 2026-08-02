@@ -1,3 +1,8 @@
 name = "vert-printing"
 pages_build_output_dir = "."
 compatibility_date = "2026-08-02"
+
+[vars]
+POSTMARK_FROM_EMAIL = "info@vertprinting.co.za"
+QUOTE_TO_EMAIL = "info@vertprinting.co.za"
+POSTMARK_MESSAGE_STREAM = "outbound"
