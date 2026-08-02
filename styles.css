@@ -655,3 +655,56 @@ h3 {
 .form-note[data-type="error"] {
   color: #b42318;
 }
+@media (max-width: 860px) {
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .faq-grid article {
+    padding: 20px;
+  }
+
+  .map-section {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 56px clamp(20px, 6vw, 84px);
+  }
+
+  .map-copy {
+    max-width: 680px;
+  }
+
+  .map-frame,
+  .map-frame iframe {
+    width: 100%;
+    min-height: 320px;
+  }
+}
+
+@media (max-width: 620px) {
+  .faq-section,
+  .map-section {
+    padding: 48px 20px;
+  }
+
+  .faq-grid {
+    gap: 12px;
+  }
+
+  .faq-grid article {
+    padding: 18px;
+  }
+
+  .faq-grid article p {
+    margin-bottom: 0;
+  }
+
+  .map-frame,
+  .map-frame iframe {
+    min-height: 280px;
+  }
+
+  .map-copy .button {
+    width: 100%;
+  }
+}
