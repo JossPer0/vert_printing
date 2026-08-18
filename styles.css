@@ -1051,7 +1051,7 @@ h3 {
 .admin-table-head,
 .admin-product-row {
   display: grid;
-  grid-template-columns: 82px minmax(180px, 1.1fr) minmax(150px, 0.9fr) minmax(100px, 0.5fr) minmax(110px, 0.5fr) minmax(130px, 0.6fr) minmax(110px, 0.5fr) minmax(300px, 1fr);
+  grid-template-columns: 82px minmax(180px, 1.05fr) minmax(140px, 0.8fr) minmax(96px, 0.45fr) minmax(105px, 0.45fr) minmax(180px, 0.75fr) minmax(96px, 0.45fr) minmax(250px, 0.85fr);
   gap: 14px;
   align-items: center;
   padding: 14px 18px;
@@ -1074,14 +1074,30 @@ h3 {
 }
 .admin-category-select {
   width: 100%;
-  min-height: 40px;
+  min-height: 42px;
+  appearance: none;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 9px 36px 9px 12px;
   color: var(--admin-text);
-  background: #fff;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--admin-muted) 50%) calc(100% - 18px) 50% / 6px 6px no-repeat,
+    linear-gradient(135deg, var(--admin-muted) 50%, transparent 50%) calc(100% - 14px) 50% / 6px 6px no-repeat,
+    #fff;
   font: inherit;
+  font-size: 0.9rem;
   font-weight: 800;
+}
+
+.admin-category-select:focus {
+  border-color: var(--admin-pink);
+  outline: 3px solid rgba(236, 22, 140, 0.16);
+}
+
+.admin-category-select:disabled {
+  color: var(--admin-muted);
+  background-color: #f4f2ee;
+  cursor: not-allowed;
 }
 
 .admin-thumb {
@@ -1127,6 +1143,24 @@ h3 {
   flex-wrap: nowrap;
   gap: 8px;
   justify-content: flex-end;
+  min-width: 0;
+}
+
+.admin-row-actions .admin-button,
+.admin-row-actions .admin-upload {
+  min-width: 112px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .admin-table-card {
+    overflow-x: auto;
+  }
+
+  .admin-table-head,
+  .admin-product-row {
+    min-width: 1280px;
+  }
 }
 
 .admin-badge {
@@ -1338,7 +1372,7 @@ h3 {
 
   .admin-table-head,
   .admin-product-row {
-    min-width: 860px;
+    min-width: 1280px;
   }
 }
 
