@@ -70,7 +70,7 @@ function ProductCard({ product, image, imageUrl, categoryName }: { product: Prod
       </div>
       <strong>{productPrice(product)}</strong>
       {product.requires_artwork && <span className="shop-note">Artwork required</span>}
-      <a className={`button ${productCta(product) === 'View Product' ? 'secondary dark' : 'primary'}`} href={productHref(product)}>{productCta(product)}</a>
+      <a className="button primary" href={productHref(product)}>{productCta(product)}</a>
     </div>
   </article>;
 }
