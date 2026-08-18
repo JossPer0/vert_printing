@@ -15,7 +15,7 @@ import ShopCatalogue from '../components/shop/ShopCatalogue';
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
+  <body class="shop-page">
     <header class="site-header">
       <a class="brand" href="/" aria-label="Vert Printing home">
         <img class="brand-logo" src="/assets/vert_logo_header.png" alt="Vert Printing" width="1255" height="570" />
@@ -32,9 +32,10 @@ import ShopCatalogue from '../components/shop/ShopCatalogue';
     </header>
     <main>
       <section class="shop-hero">
-        <p class="section-kicker">Vert Catalogue</p>
-        <h1>Browse products and request a custom quote.</h1>
-        <p>These products are available for enquiry. Pricing and production details are confirmed before anything goes ahead.</p>
+        <p class="section-kicker">Shop</p>
+        <h1>Print, personalise and order online.</h1>
+        <p>Browse Vert products below. Need something custom? Send us the details and we will put together a quote.</p>
+        <a class="button secondary dark" href="/#quote">Request a Custom Quote</a>
       </section>
       <section class="section shop-section">
         <ShopCatalogue client:load />
