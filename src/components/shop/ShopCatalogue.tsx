@@ -48,11 +48,12 @@ function productPrice(product: Product) {
 function productCta(product: Product) {
   if (product.pricing_mode === 'quote_only' || product.product_type === 'quote_only') return 'Request a Quote';
   if (product.product_type === 'configurable' || product.pricing_mode === 'from_price') return 'Discuss Options';
-  return 'Enquire';
+  return 'View Product';
 }
 
 function productHref(product: Product) {
-  return `/?product=${encodeURIComponent(product.name)}#quote`;
+  if (product.pricing_mode === 'quote_only' || product.product_type === 'quote_only') return `/?product=${encodeURIComponent(product.name)}#quote`;
+  return `/product/${product.slug}`;
 }
 
 function productSupportText(product: Product) {
@@ -75,7 +76,7 @@ function ProductCard({ product, image, imageUrl, categoryName }: { product: Prod
       </div>
       <strong>{productPrice(product)}</strong>
       {product.requires_artwork && <span className="shop-note">Artwork required</span>}
-      <a className="button primary" href={productHref(product)}>{productCta(product)}</a>
+      <a className={`button ${productCta(product) === 'View Product' ? 'secondary dark' : 'primary'}`} href={productHref(product)}>{productCta(product)}</a>
     </div>
   </article>;
 }
