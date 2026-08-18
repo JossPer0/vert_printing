@@ -1,0 +1,49 @@
+---
+import ShopCatalogue from '../components/shop/ShopCatalogue';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Browse published Vert Printing catalogue items and request a custom quote for printing, embroidery, stickers, labels and laser cutting." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://www.vertprinting.co.za/shop" />
+    <title>Shop Catalogue | Vert Printing Kloof</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Vert Printing home">
+        <img class="brand-logo" src="/assets/vert_logo_header.png" alt="Vert Printing" width="1255" height="570" />
+        <span><strong>Vert Printing</strong><small>Kloof, Durban</small></span>
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
+      <nav id="site-nav" class="site-nav" aria-label="Main navigation">
+        <a href="/#services">Services</a>
+        <a href="/shop" aria-current="page">Shop</a>
+        <a href="/#work">Our Work</a>
+        <a href="/#story">About</a>
+        <a href="/#quote">Get a Quote</a>
+      </nav>
+    </header>
+    <main>
+      <section class="shop-hero">
+        <p class="section-kicker">Vert Catalogue</p>
+        <h1>Browse products and request a custom quote.</h1>
+        <p>These products are available for enquiry. Pricing and production details are confirmed before anything goes ahead.</p>
+      </section>
+      <section class="section shop-section">
+        <ShopCatalogue client:load />
+      </section>
+    </main>
+    <footer class="site-footer">
+      <p>&copy; 2026 Vert Printing. All rights reserved.</p>
+      <div><a href="https://www.facebook.com/vertprinting">Facebook</a><a href="https://www.instagram.com/vertprinting">Instagram</a><a href="https://wa.me/27662456511">WhatsApp</a></div>
+    </footer>
+    <script src="/script.js" type="module"></script>
+  </body>
+</html>
