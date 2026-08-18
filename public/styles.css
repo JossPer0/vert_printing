@@ -1568,6 +1568,8 @@ h3 {
 }
 
 .shop-card-image {
+  --shop-card-image-pad: clamp(16px, 3vw, 28px);
+  position: relative;
   display: grid;
   place-items: center;
   aspect-ratio: 1 / 1;
@@ -1580,9 +1582,11 @@ h3 {
 }
 
 .shop-card-image img {
-  width: 100%;
-  height: 100%;
-  padding: 16px;
+  position: absolute;
+  inset: var(--shop-card-image-pad);
+  display: block;
+  width: calc(100% - (var(--shop-card-image-pad) * 2)) !important;
+  height: calc(100% - (var(--shop-card-image-pad) * 2)) !important;
   object-fit: contain;
   transition: transform 180ms ease;
 }
@@ -1705,10 +1709,6 @@ h3 {
   .shop-grid,
   .shop-skeleton-grid {
     grid-template-columns: 1fr;
-  }
-
-  .shop-card-image img {
-    padding: 12px;
   }
 }
 
