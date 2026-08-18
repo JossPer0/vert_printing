@@ -1533,46 +1533,56 @@ h3 {
 
 .shop-hero {
   display: grid;
-  gap: 12px;
-  padding: 26px 0 12px;
+  gap: 8px;
+  padding: 16px 0 6px;
   color: var(--ink);
   background: transparent;
 }
 
 .shop-hero h1 {
-  max-width: 720px;
+  max-width: 920px;
   margin: 0;
-  font-size: clamp(2rem, 4.4vw, 3.25rem);
+  font-size: clamp(1.75rem, 3.2vw, 2.75rem);
   letter-spacing: 0;
-  line-height: 1;
+  line-height: 1.04;
 }
 
 .shop-hero p:not(.section-kicker) {
-  max-width: 640px;
+  max-width: 820px;
   margin: 0;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: 0.98rem;
 }
 
-.shop-hero .button {
-  width: fit-content;
-  margin-top: 4px;
+.shop-quote-link {
+  color: var(--hot-pink);
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.shop-quote-link:hover {
+  text-decoration: underline;
 }
 
 .shop-section {
-  padding: 18px 0 70px;
+  padding: 10px 0 64px;
   background: #fbfaf7;
 }
 
 .shop-controls {
   display: grid;
-  gap: 18px;
-  margin-bottom: 28px;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
 }
 
 .shop-category-row {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .shop-filter-heading {
@@ -1592,20 +1602,20 @@ h3 {
 }
 .shop-categories {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
   scrollbar-width: thin;
-  padding: 2px 0 5px;
+  padding: 1px 0 3px;
 }
 
 .shop-categories button {
-  min-height: 40px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 7px 12px;
   color: var(--ink);
   background: #fff;
   font: inherit;
@@ -1644,13 +1654,13 @@ h3 {
 
 .shop-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(180px, 260px) auto;
-  gap: 14px;
+  grid-template-columns: minmax(260px, 1fr) minmax(170px, 230px) auto;
+  gap: 10px;
   align-items: end;
 }
 
 .shop-clear-filters {
-  min-height: 44px;
+  min-height: 40px;
   align-self: end;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1669,7 +1679,7 @@ h3 {
 }
 .shop-toolbar label {
   display: grid;
-  gap: 7px;
+  gap: 5px;
   color: var(--ink);
   font-size: 0.86rem;
   font-weight: 900;
@@ -1677,7 +1687,7 @@ h3 {
 
 .shop-toolbar input,
 .shop-toolbar select {
-  min-height: 44px;
+  min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px 12px;
@@ -1689,7 +1699,7 @@ h3 {
 .shop-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+  gap: 20px;
 }
 
 .shop-card {
@@ -1833,7 +1843,7 @@ h3 {
   }
 
   .shop-hero {
-    padding: 20px 0 10px;
+    padding: 12px 0 4px;
   }
 
   .shop-filter-heading {
@@ -1843,8 +1853,8 @@ h3 {
   }
 
   .shop-categories {
-    margin-inline: -16px;
-    padding-inline: 16px;
+    margin-inline: -12px;
+    padding-inline: 12px;
   }
 
   .shop-clear-filters {
