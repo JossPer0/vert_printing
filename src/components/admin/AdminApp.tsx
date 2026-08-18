@@ -244,8 +244,7 @@ export default function AdminApp() {
       setBusy('');
       return;
     }
-    const { data } = supabase.storage.from('product-images').getPublicUrl(path);
-    const { error } = await supabase.from('product_images').insert({ product_id: product.id, storage_path: path, public_url: data.publicUrl, alt_text: product.name, sort_order: 0 });
+    const { error } = await supabase.from('product_images').insert({ product_id: product.id, storage_path: path, alt_text: product.name, sort_order: 0 });
     if (error) await handleAppError(error.message);
     else setNotice({ type: 'success', text: 'Product image uploaded.' });
     setBusy('');
