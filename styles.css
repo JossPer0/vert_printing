@@ -1279,6 +1279,19 @@ h3 {
   cursor: pointer;
 }
 
+.admin-row-actions .admin-upload.admin-icon-button {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  border-radius: 10px;
+}
+
+.admin-row-actions .admin-upload.admin-icon-button svg {
+  pointer-events: none;
+}
+
 .admin-category-list {
   display: grid;
   gap: 10px;
