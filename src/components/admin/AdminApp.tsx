@@ -90,6 +90,7 @@ export default function AdminApp() {
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [busy, setBusy] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
 
   const view: View = (() => {
     if (typeof window === 'undefined') return 'dashboard';
@@ -302,11 +303,12 @@ export default function AdminApp() {
       <main className="admin-content">
         {notice && <p className={`admin-notice ${notice.type}`}>{notice.text}</p>}
         {view === 'dashboard' && <Dashboard products={products} categories={categories} publishedCount={publishedCount} draftCount={draftCount} busy={busy} navigate={navigate} />}
-        {view === 'products' && <Products products={products} productImages={productImages} supabase={supabase} busy={busy} navigate={navigate} togglePublish={togglePublish} uploadProductImage={uploadProductImage} />}
+        {view === 'products' && <Products products={products} productImages={productImages} supabase={supabase} busy={busy} navigate={navigate} togglePublish={togglePublish} uploadProductImage={uploadProductImage} setPreviewImage={setPreviewImage} />}
         {view === 'new-product' && <NewProduct busy={busy} createProduct={createProduct} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} />}
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} />}
       </main>
     </div>
+    {previewImage && <div className="admin-image-modal" role="dialog" aria-modal="true" aria-label="Product image preview" onClick={() => setPreviewImage(null)}><div><button type="button" aria-label="Close image preview" onClick={() => setPreviewImage(null)}>Close</button><img src={previewImage.src} alt={previewImage.alt} /></div></div>}
   </div>;
 }
 
@@ -314,7 +316,7 @@ function Dashboard({ products, categories, publishedCount, draftCount, busy, nav
   return <><PageHeader title="Shop Manager" eyebrow="Manage your Vert Printing shop." actions={<button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button>} /><section className="admin-metrics"><article><span>Total Products</span><strong>{products.length}</strong></article><article><span>Published Products</span><strong>{publishedCount}</strong></article><article><span>Draft Products</span><strong>{draftCount}</strong></article><article><span>Categories</span><strong>{categories.length}</strong></article></section><section className="admin-card"><h2>Catalogue overview</h2>{busy === 'loading' ? <p className="admin-muted">Loading catalogue...</p> : <p className="admin-muted">Use Products and Categories to manage what will appear in the future Vert online catalogue.</p>}</section></>;
 }
 
-function Products({ products, productImages, supabase, busy, navigate, togglePublish, uploadProductImage }: { products: Product[]; productImages: Record<string, ProductImage>; supabase: SupabaseClient | null; busy: string; navigate: (path: string) => void; togglePublish: (product: Product) => void; uploadProductImage: (product: Product, files: FileList | null) => void }) {
+function Products({ products, productImages, supabase, busy, navigate, togglePublish, uploadProductImage, setPreviewImage }: { products: Product[]; productImages: Record<string, ProductImage>; supabase: SupabaseClient | null; busy: string; navigate: (path: string) => void; togglePublish: (product: Product) => void; uploadProductImage: (product: Product, files: FileList | null) => void; setPreviewImage: (image: { src: string; alt: string } | null) => void }) {
   const imageUrl = (product: Product) => {
     const image = productImages[product.id];
     if (!image || !supabase) return '';
@@ -323,7 +325,7 @@ function Products({ products, productImages, supabase, busy, navigate, togglePub
 
   return <><PageHeader title="Products" eyebrow="Manage the products shown in your online shop." actions={<button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button>} />{products.length ? <section className="admin-card admin-table-card"><div className="admin-table-head"><span>Image</span><span>Product</span><span>Price</span><span>Type</span><span>Status</span><span>Actions</span></div>{products.map((product) => {
     const url = imageUrl(product);
-    return <div className="admin-product-row" key={product.id}><div className="admin-thumb">{url ? <img src={url} alt={productImages[product.id]?.alt_text || product.name} /> : <span>No image</span>}</div><div><strong>{product.name}</strong><small>{product.slug}</small></div><span>{formatMoney(product.base_price)}</span><span>{product.product_type.replace('_', ' ')}</span><Badge tone={product.is_published ? 'success' : 'neutral'}>{product.is_published ? 'Published' : 'Draft'}</Badge><div className="admin-row-actions"><button className="admin-button secondary" type="button" disabled={busy === product.id} onClick={() => togglePublish(product)}>{product.is_published ? 'Unpublish' : 'Publish'}</button><label className="admin-upload">{url ? 'Update Image' : 'Add Image'}<input type="file" accept="image/*" onChange={(event) => uploadProductImage(product, event.currentTarget.files)} /></label></div></div>;
+    return <div className="admin-product-row" key={product.id}><button className="admin-thumb" type="button" disabled={!url} onClick={() => url && setPreviewImage({ src: url, alt: productImages[product.id]?.alt_text || product.name })}>{url ? <img src={url} alt={productImages[product.id]?.alt_text || product.name} /> : <span>No image</span>}</button><div><strong>{product.name}</strong><small>{product.slug}</small></div><span>{formatMoney(product.base_price)}</span><span>{product.product_type.replace('_', ' ')}</span><Badge tone={product.is_published ? 'success' : 'neutral'}>{product.is_published ? 'Published' : 'Draft'}</Badge><div className="admin-row-actions"><button className="admin-button secondary" type="button" disabled={busy === product.id} onClick={() => togglePublish(product)}>{product.is_published ? 'Unpublish' : 'Publish'}</button><label className="admin-upload">{url ? 'Update Image' : 'Add Image'}<input type="file" accept="image/*" onChange={(event) => uploadProductImage(product, event.currentTarget.files)} /></label></div></div>;
   })}</section> : <EmptyState title="You haven't added any products yet." text="Add your first product to start building the Vert online catalogue." action={<button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button>} />}</>;
 }
 
