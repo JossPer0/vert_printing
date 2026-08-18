@@ -193,7 +193,6 @@ export default function ShopCatalogue() {
   }, [activeCategory, categoryByProduct, productCategories, products, search, sort]);
 
   const hasActiveFilters = activeCategory !== 'all' || search.trim().length > 0;
-  const resultLabel = `${filteredProducts.length} ${filteredProducts.length === 1 ? 'product' : 'products'}`;
 
   if (loading) return <div className="shop-container"><div className="shop-skeleton-grid"><span></span><span></span><span></span></div></div>;
   if (error) return <div className="shop-container"><div className="shop-empty"><h2>Shop unavailable</h2><p>{error}</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
@@ -201,16 +200,13 @@ export default function ShopCatalogue() {
 
   return <div className="shop-container">
     <div className="shop-controls" aria-label="Shop filters">
-      {visibleCategories.length > 0 && <div className="shop-category-row">
-        <div className="shop-filter-heading"><span>Browse by category</span><small>{resultLabel}</small></div>
-        <div className="shop-categories" aria-label="Product categories">
-          <button className={activeCategory === 'all' ? 'active' : ''} type="button" aria-pressed={activeCategory === 'all'} onClick={() => setActiveCategory('all')}>All <span>{products.length}</span></button>
-          {visibleCategories.map((category) => <button className={activeCategory === category.id ? 'active' : ''} key={category.id} type="button" aria-pressed={activeCategory === category.id} onClick={() => setActiveCategory(category.id)}>{category.name} <span>{categoryCounts[category.id] || 0}</span></button>)}
-        </div>
+      {visibleCategories.length > 0 && <div className="shop-categories" aria-label="Product categories">
+        <button className={activeCategory === 'all' ? 'active' : ''} type="button" aria-pressed={activeCategory === 'all'} onClick={() => setActiveCategory('all')}>All</button>
+        {visibleCategories.map((category) => <button className={activeCategory === category.id ? 'active' : ''} key={category.id} type="button" aria-pressed={activeCategory === category.id} onClick={() => setActiveCategory(category.id)}>{category.name}</button>)}
       </div>}
       <div className="shop-toolbar">
         <label><span>Search products</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products..." /></label>
-        <label><span>Sort by</span><select value={sort} onChange={(event) => setSort(event.target.value)}><option value="newest">Newest</option><option value="name">Name A-Z</option><option value="price-asc">Price Low to High</option><option value="price-desc">Price High to Low</option></select></label>
+        <label><span>Sort by</span><select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sort products"><option value="newest">Newest</option><option value="name">Name A-Z</option><option value="price-asc">Price Low to High</option><option value="price-desc">Price High to Low</option></select></label>
         {hasActiveFilters && <button className="shop-clear-filters" type="button" onClick={() => { setSearch(''); setActiveCategory('all'); }}>Clear filters</button>}
       </div>
     </div>

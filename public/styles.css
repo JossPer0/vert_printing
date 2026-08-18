@@ -1533,8 +1533,8 @@ h3 {
 
 .shop-hero {
   display: grid;
-  gap: 8px;
-  padding: 16px 0 6px;
+  gap: 6px;
+  padding: 12px 0 4px;
   color: var(--ink);
   background: transparent;
 }
@@ -1542,16 +1542,16 @@ h3 {
 .shop-hero h1 {
   max-width: 920px;
   margin: 0;
-  font-size: clamp(1.75rem, 3.2vw, 2.75rem);
+  font-size: clamp(1.65rem, 2.8vw, 2.45rem);
   letter-spacing: 0;
   line-height: 1.04;
 }
 
 .shop-hero p:not(.section-kicker) {
-  max-width: 820px;
+  max-width: 840px;
   margin: 0;
   color: var(--muted);
-  font-size: 0.98rem;
+  font-size: 0.96rem;
 }
 
 .shop-quote-link {
@@ -1566,79 +1566,54 @@ h3 {
 }
 
 .shop-section {
-  padding: 10px 0 64px;
+  padding: 6px 0 64px;
   background: #fbfaf7;
 }
 
 .shop-controls {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 18px;
-  padding: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fff;
 }
 
-.shop-category-row {
-  display: grid;
-  gap: 8px;
-}
-
-.shop-filter-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  color: var(--ink);
-  font-size: 0.86rem;
-  font-weight: 900;
-}
-
-.shop-filter-heading small {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 800;
-}
 .shop-categories {
   display: flex;
+  flex: 1 1 auto;
   gap: 8px;
+  min-width: min(100%, 320px);
   overflow-x: auto;
   scrollbar-width: thin;
-  padding: 1px 0 3px;
+  padding: 1px 0;
 }
 
 .shop-categories button {
   min-height: 36px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  border: 1px solid var(--line);
+  justify-content: center;
+  border: 1px solid #d6d1c9;
   border-radius: 999px;
-  padding: 7px 12px;
+  padding: 7px 13px;
   color: var(--ink);
   background: #fff;
   font: inherit;
+  font-size: 0.9rem;
   font-weight: 900;
+  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
 }
 
-.shop-categories button span {
-  display: inline-grid;
-  min-width: 22px;
-  height: 22px;
-  place-items: center;
-  border-radius: 999px;
-  padding: 0 7px;
-  color: var(--muted);
-  background: #f2f1ed;
-  font-size: 0.76rem;
-}
-
-.shop-categories button.active span {
+.shop-categories button:hover {
+  border-color: var(--hot-pink);
   color: var(--hot-pink);
-  background: #fff;
 }
 
 .shop-categories button:focus-visible,
@@ -1646,28 +1621,32 @@ h3 {
   outline: 3px solid rgba(236, 22, 140, 0.18);
   outline-offset: 2px;
 }
+
 .shop-categories button.active {
   color: #fff;
   border-color: var(--hot-pink);
   background: var(--hot-pink);
+  box-shadow: 0 5px 12px rgba(236, 22, 140, 0.18);
 }
 
 .shop-toolbar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(170px, 230px) auto;
+  grid-template-columns: minmax(220px, 330px) minmax(150px, 190px) auto;
   gap: 10px;
-  align-items: end;
+  align-items: center;
+  margin-left: auto;
 }
 
 .shop-clear-filters {
-  min-height: 40px;
+  min-height: 38px;
   align-self: end;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 9px 12px;
   color: var(--ink);
   background: #fff;
   font: inherit;
+  font-size: 0.9rem;
   font-weight: 900;
   white-space: nowrap;
   cursor: pointer;
@@ -1677,29 +1656,40 @@ h3 {
   border-color: var(--hot-pink);
   color: var(--hot-pink);
 }
+
 .shop-toolbar label {
   display: grid;
-  gap: 5px;
   color: var(--ink);
-  font-size: 0.86rem;
+  font-size: 0;
   font-weight: 900;
+}
+
+.shop-toolbar label span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .shop-toolbar input,
 .shop-toolbar select {
-  min-height: 40px;
+  min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 9px 11px;
   color: var(--ink);
   background: #fff;
   font: inherit;
+  font-size: 0.94rem;
 }
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 360px));
   gap: 20px;
+  justify-content: start;
 }
 
 .shop-card {
@@ -1716,7 +1706,8 @@ h3 {
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 3;
+  max-height: 250px;
   overflow: hidden;
   color: var(--muted);
   background: #f2f1ed;
@@ -1741,8 +1732,8 @@ h3 {
 
 .shop-card-body {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 10px;
+  padding: 14px;
 }
 
 .shop-card-body p {
@@ -1846,28 +1837,35 @@ h3 {
     padding: 12px 0 4px;
   }
 
-  .shop-filter-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
+  .shop-controls {
+    align-items: stretch;
+    padding: 10px 0 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   .shop-categories {
-    margin-inline: -12px;
-    padding-inline: 12px;
+    flex-wrap: nowrap;
+    min-width: 100%;
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+
+  .shop-toolbar {
+    width: 100%;
+    grid-template-columns: 1fr;
+    margin-left: 0;
   }
 
   .shop-clear-filters {
     width: 100%;
   }
 
-  .shop-hero .button,
-  .shop-toolbar,
   .shop-card-body .button {
     width: 100%;
   }
 
-  .shop-toolbar,
   .shop-grid,
   .shop-skeleton-grid {
     grid-template-columns: 1fr;
