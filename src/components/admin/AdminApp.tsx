@@ -30,6 +30,11 @@ type Product = {
   minimum_quantity: number;
 };
 
+type ProductCategory = {
+  product_id: string;
+  category_id: string;
+};
+
 type Notice = { type: 'info' | 'success' | 'error'; text: string } | null;
 
 type View = 'dashboard' | 'products' | 'new-product' | 'categories';
@@ -80,9 +85,11 @@ export default function AdminApp() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [productImages, setProductImages] = useState<Record<string, ProductImage>>({});
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
   const [categoryName, setCategoryName] = useState('');
   const [categorySlug, setCategorySlug] = useState('');
   const [productName, setProductName] = useState('');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [basePrice, setBasePrice] = useState('');
   const [productType, setProductType] = useState('standard');
   const [pricingMode, setPricingMode] = useState('fixed');
@@ -114,16 +121,18 @@ export default function AdminApp() {
       setProducts([]);
       setProductImages({});
       setCategories([]);
+      setProductCategories([]);
     }
   }
 
   async function loadData(client = supabase) {
     if (!client) return;
     setBusy('loading');
-    const [categoryResult, productResult, imageResult] = await Promise.all([
+    const [categoryResult, productResult, imageResult, productCategoryResult] = await Promise.all([
       client.from('categories').select('id,name,slug,is_active,sort_order').order('sort_order').order('name'),
       client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
       client.from('product_images').select('id,product_id,storage_path,alt_text,sort_order').order('sort_order'),
+      client.from('product_categories').select('product_id,category_id'),
     ]);
 
     if (categoryResult.error) await handleAppError(categoryResult.error.message);
@@ -140,6 +149,9 @@ export default function AdminApp() {
       }
       setProductImages(firstImages);
     }
+
+    if (productCategoryResult.error) await handleAppError(productCategoryResult.error.message);
+    else setProductCategories(productCategoryResult.data || []);
     setBusy('');
   }
 
@@ -196,6 +208,7 @@ export default function AdminApp() {
     setProducts([]);
     setProductImages({});
     setCategories([]);
+    setProductCategories([]);
     setNotice({ type: 'success', text: 'Signed out.' });
   }
 
@@ -221,7 +234,7 @@ export default function AdminApp() {
     setBusy(publish ? 'publish-new' : 'product');
     const slug = slugify(productName);
     const price = basePrice.trim() ? Number(basePrice) : null;
-    const { error } = await supabase.from('products').insert({
+    const { data, error } = await supabase.from('products').insert({
       name: productName.trim(),
       slug,
       product_type: productType,
@@ -231,16 +244,36 @@ export default function AdminApp() {
       is_active: true,
       is_published: publish,
       minimum_quantity: 1,
-    });
+    }).select('id').single();
     if (error) await handleAppError(error.message);
-    else setNotice({ type: 'success', text: publish ? 'Product published.' : 'Product draft saved.' });
+    else if (selectedCategoryIds.length && data?.id) {
+      const relations = selectedCategoryIds.map((categoryId) => ({ product_id: data.id, category_id: categoryId }));
+      const categoryResult = await supabase.from('product_categories').insert(relations);
+      if (categoryResult.error) await handleAppError(categoryResult.error.message);
+      else setNotice({ type: 'success', text: publish ? 'Product published and categorised.' : 'Product draft saved and categorised.' });
+    } else setNotice({ type: 'success', text: publish ? 'Product published.' : 'Product draft saved.' });
     if (!error) {
       setProductName('');
+      setSelectedCategoryIds([]);
       setBasePrice('');
       setRequiresArtwork(false);
       await loadData();
       if (typeof window !== 'undefined') window.history.pushState(null, '', '/admin/products');
     }
+    setBusy('');
+  }
+  async function updateProductCategories(product: Product, categoryIds: string[]) {
+    if (!supabase) return;
+    setBusy(`categories-${product.id}`);
+    const deleteResult = await supabase.from('product_categories').delete().eq('product_id', product.id);
+    if (deleteResult.error) await handleAppError(deleteResult.error.message);
+    else if (categoryIds.length) {
+      const relations = categoryIds.map((categoryId) => ({ product_id: product.id, category_id: categoryId }));
+      const insertResult = await supabase.from('product_categories').insert(relations);
+      if (insertResult.error) await handleAppError(insertResult.error.message);
+      else setNotice({ type: 'success', text: 'Product categories updated.' });
+    } else setNotice({ type: 'success', text: 'Product categories cleared.' });
+    await loadData();
     setBusy('');
   }
 
@@ -320,8 +353,8 @@ export default function AdminApp() {
       <main className="admin-content">
         {notice && <p className={`admin-notice ${notice.type}`}>{notice.text}</p>}
         {view === 'dashboard' && <Dashboard products={products} categories={categories} publishedCount={publishedCount} draftCount={draftCount} busy={busy} navigate={navigate} />}
-        {view === 'products' && <Products products={products} productImages={productImages} supabase={supabase} busy={busy} navigate={navigate} togglePublish={togglePublish} uploadProductImage={uploadProductImage} setPreviewImage={setPreviewImage} />}
-        {view === 'new-product' && <NewProduct busy={busy} createProduct={createProduct} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} />}
+        {view === 'products' && <Products products={products} productImages={productImages} productCategories={productCategories} categories={sortedCategories} supabase={supabase} busy={busy} navigate={navigate} togglePublish={togglePublish} uploadProductImage={uploadProductImage} setPreviewImage={setPreviewImage} updateProductCategories={updateProductCategories} />}
+        {view === 'new-product' && <NewProduct busy={busy} createProduct={createProduct} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} categories={sortedCategories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} />}
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} />}
       </main>
     </div>
@@ -333,23 +366,39 @@ function Dashboard({ products, categories, publishedCount, draftCount, busy, nav
   return <><PageHeader title="Shop Manager" eyebrow="Manage your Vert Printing shop." actions={<button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button>} /><section className="admin-metrics"><article><span>Total Products</span><strong>{products.length}</strong></article><article><span>Published Products</span><strong>{publishedCount}</strong></article><article><span>Draft Products</span><strong>{draftCount}</strong></article><article><span>Categories</span><strong>{categories.length}</strong></article></section><section className="admin-card"><h2>Catalogue overview</h2>{busy === 'loading' ? <p className="admin-muted">Loading catalogue...</p> : <p className="admin-muted">Use Products and Categories to manage what will appear in the future Vert online catalogue.</p>}</section></>;
 }
 
-function Products({ products, productImages, supabase, busy, navigate, togglePublish, uploadProductImage, setPreviewImage }: { products: Product[]; productImages: Record<string, ProductImage>; supabase: SupabaseClient | null; busy: string; navigate: (path: string) => void; togglePublish: (product: Product) => void; uploadProductImage: (product: Product, files: FileList | null) => void; setPreviewImage: (image: { src: string; alt: string } | null) => void }) {
+function Products({ products, productImages, productCategories, categories, supabase, busy, navigate, togglePublish, uploadProductImage, setPreviewImage, updateProductCategories }: { products: Product[]; productImages: Record<string, ProductImage>; productCategories: ProductCategory[]; categories: Category[]; supabase: SupabaseClient | null; busy: string; navigate: (path: string) => void; togglePublish: (product: Product) => void; uploadProductImage: (product: Product, files: FileList | null) => void; setPreviewImage: (image: { src: string; alt: string } | null) => void; updateProductCategories: (product: Product, categoryIds: string[]) => void }) {
+  const categoryById = useMemo(() => Object.fromEntries(categories.map((category) => [category.id, category])), [categories]);
+  const categoriesByProduct = useMemo(() => {
+    const grouped: Record<string, Category[]> = {};
+    for (const relation of productCategories) {
+      const category = categoryById[relation.category_id];
+      if (!category) continue;
+      grouped[relation.product_id] = [...(grouped[relation.product_id] || []), category];
+    }
+    return grouped;
+  }, [categoryById, productCategories]);
+
   const imageUrl = (product: Product) => {
     const image = productImages[product.id];
     if (!image || !supabase) return '';
     return supabase.storage.from('product-images').getPublicUrl(image.storage_path).data.publicUrl;
   };
 
-  return <><PageHeader title="Products" eyebrow="Manage the products shown in your online shop." actions={<button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button>} />{products.length ? <section className="admin-card admin-table-card"><div className="admin-table-head"><span>Image</span><span>Product</span><span>Slug</span><span>Price</span><span>Type</span><span>Status</span><span>Actions</span></div>{products.map((product) => {
+  return <><PageHeader title="Products" eyebrow="Manage the products shown in your online shop." actions={<button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button>} />{products.length ? <section className="admin-card admin-table-card"><div className="admin-table-head"><span>Image</span><span>Product</span><span>Slug</span><span>Price</span><span>Type</span><span>Categories</span><span>Status</span><span>Actions</span></div>{products.map((product) => {
     const url = imageUrl(product);
-    return <div className="admin-product-row" key={product.id}><button className="admin-thumb" type="button" disabled={!url} onClick={() => url && setPreviewImage({ src: url, alt: productImages[product.id]?.alt_text || product.name })}>{url ? <img src={url} alt={productImages[product.id]?.alt_text || product.name} /> : <span>No image</span>}</button><strong>{product.name}</strong><span>{product.slug}</span><span>{formatMoney(product.base_price)}</span><span>{product.product_type.replace('_', ' ')}</span><Badge tone={product.is_published ? 'success' : 'neutral'}>{product.is_published ? 'Published' : 'Draft'}</Badge><div className="admin-row-actions"><button className={`admin-button ${product.is_published ? 'danger' : 'success'}`} type="button" disabled={busy === product.id} onClick={() => togglePublish(product)}>{product.is_published ? 'Unpublish' : 'Publish'}</button><label className={`admin-upload ${url ? 'success' : 'secondary'}`}>{url ? 'Update Image' : 'Add Image'}<input type="file" accept="image/*" onChange={(event) => uploadProductImage(product, event.currentTarget.files)} /></label></div></div>;
+    const assignedCategories = categoriesByProduct[product.id] || [];
+    return <div className="admin-product-row" key={product.id}><button className="admin-thumb" type="button" disabled={!url} onClick={() => url && setPreviewImage({ src: url, alt: productImages[product.id]?.alt_text || product.name })}>{url ? <img src={url} alt={productImages[product.id]?.alt_text || product.name} /> : <span>No image</span>}</button><strong>{product.name}</strong><span>{product.slug}</span><span>{formatMoney(product.base_price)}</span><span>{product.product_type.replace('_', ' ')}</span><div className="admin-category-pills">{categories.length ? categories.map((category) => { const checked = assignedCategories.some((assigned) => assigned.id === category.id); const nextIds = checked ? assignedCategories.filter((assigned) => assigned.id !== category.id).map((assigned) => assigned.id) : [...assignedCategories.map((assigned) => assigned.id), category.id]; return <label key={category.id}><input type="checkbox" checked={checked} disabled={busy === `categories-${product.id}`} onChange={() => updateProductCategories(product, nextIds)} /><span>{category.name}</span></label>; }) : <small>No categories yet</small>}</div><Badge tone={product.is_published ? 'success' : 'neutral'}>{product.is_published ? 'Published' : 'Draft'}</Badge><div className="admin-row-actions"><button className={`admin-button ${product.is_published ? 'danger' : 'success'}`} type="button" disabled={busy === product.id} onClick={() => togglePublish(product)}>{product.is_published ? 'Unpublish' : 'Publish'}</button><label className={`admin-upload ${url ? 'success' : 'secondary'}`}>{url ? 'Update Image' : 'Add Image'}<input type="file" accept="image/*" onChange={(event) => uploadProductImage(product, event.currentTarget.files)} /></label></div></div>;
   })}</section> : <EmptyState title="You haven't added any products yet." text="Add your first product to start building the Vert online catalogue." action={<button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button>} />}</>;
 }
+function NewProduct(props: { busy: string; createProduct: (event: React.FormEvent, publish?: boolean) => void; productName: string; setProductName: (value: string) => void; productType: string; setProductType: (value: string) => void; pricingMode: string; setPricingMode: (value: string) => void; basePrice: string; setBasePrice: (value: string) => void; requiresArtwork: boolean; setRequiresArtwork: (value: boolean) => void; categories: Category[]; selectedCategoryIds: string[]; setSelectedCategoryIds: (value: string[]) => void }) {
+  const toggleCategory = (categoryId: string) => {
+    props.setSelectedCategoryIds(props.selectedCategoryIds.includes(categoryId)
+      ? props.selectedCategoryIds.filter((id) => id !== categoryId)
+      : [...props.selectedCategoryIds, categoryId]);
+  };
 
-function NewProduct(props: { busy: string; createProduct: (event: React.FormEvent, publish?: boolean) => void; productName: string; setProductName: (value: string) => void; productType: string; setProductType: (value: string) => void; pricingMode: string; setPricingMode: (value: string) => void; basePrice: string; setBasePrice: (value: string) => void; requiresArtwork: boolean; setRequiresArtwork: (value: boolean) => void }) {
-  return <form onSubmit={(event) => props.createProduct(event, false)}><PageHeader title="Add Product" eyebrow="Create a new product for the Vert shop." actions={<><a className="admin-button secondary" href="/admin/products">Cancel</a><button className="admin-button secondary" type="submit" disabled={props.busy === 'product'}>Save Draft</button><button className="admin-button primary" type="button" disabled={props.busy === 'publish-new'} onClick={(event) => props.createProduct(event as unknown as React.FormEvent, true)}>Publish</button></>} /><section className="admin-form-grid"><div className="admin-card"><h2>Basic Information</h2><Field label="Product name"><input value={props.productName} onChange={(event) => props.setProductName(event.target.value)} required /></Field><Field label="Product type" helper="Use Quote Only when the product cannot be priced upfront."><select value={props.productType} onChange={(event) => props.setProductType(event.target.value)}><option value="standard">Standard</option><option value="configurable">Configurable</option><option value="quote_only">Quote Only</option></select></Field></div><div className="admin-card"><h2>Pricing</h2><Field label="Pricing mode"><select value={props.pricingMode} onChange={(event) => props.setPricingMode(event.target.value)}><option value="fixed">Fixed Price</option><option value="from_price">From Price</option><option value="quote_only">Quote Only</option></select></Field><Field label="Base price" helper="Displayed in South African Rand."><input value={props.basePrice} onChange={(event) => props.setBasePrice(event.target.value)} type="number" min="0" step="0.01" disabled={props.pricingMode === 'quote_only'} /></Field></div><div className="admin-card"><h2>Artwork</h2><label className="admin-toggle"><input type="checkbox" checked={props.requiresArtwork} onChange={(event) => props.setRequiresArtwork(event.target.checked)} /><span>Requires artwork</span></label><p className="admin-muted">Customers will be prompted to provide artwork details for this product.</p></div><div className="admin-card"><h2>Images</h2><div className="admin-dropzone"><strong>Add images after saving</strong><p>Save this product first, then upload images from the Products list.</p></div></div></section></form>;
+  return <form onSubmit={(event) => props.createProduct(event, false)}><PageHeader title="Add Product" eyebrow="Create a new product for the Vert shop." actions={<><a className="admin-button secondary" href="/admin/products">Cancel</a><button className="admin-button secondary" type="submit" disabled={props.busy === 'product'}>Save Draft</button><button className="admin-button primary" type="button" disabled={props.busy === 'publish-new'} onClick={(event) => props.createProduct(event as unknown as React.FormEvent, true)}>Publish</button></>} /><section className="admin-form-grid"><div className="admin-card"><h2>Basic Information</h2><Field label="Product name"><input value={props.productName} onChange={(event) => props.setProductName(event.target.value)} required /></Field><Field label="Product type" helper="Use Quote Only when the product cannot be priced upfront."><select value={props.productType} onChange={(event) => props.setProductType(event.target.value)}><option value="standard">Standard</option><option value="configurable">Configurable</option><option value="quote_only">Quote Only</option></select></Field></div><div className="admin-card"><h2>Pricing</h2><Field label="Pricing mode"><select value={props.pricingMode} onChange={(event) => props.setPricingMode(event.target.value)}><option value="fixed">Fixed Price</option><option value="from_price">From Price</option><option value="quote_only">Quote Only</option></select></Field><Field label="Base price" helper="Displayed in South African Rand."><input value={props.basePrice} onChange={(event) => props.setBasePrice(event.target.value)} type="number" min="0" step="0.01" disabled={props.pricingMode === 'quote_only'} /></Field></div><div className="admin-card"><h2>Categories</h2>{props.categories.length ? <div className="admin-check-list">{props.categories.map((category) => <label key={category.id}><input type="checkbox" checked={props.selectedCategoryIds.includes(category.id)} onChange={() => toggleCategory(category.id)} /><span>{category.name}</span></label>)}</div> : <p className="admin-muted">Create categories first, then assign products to them here.</p>}</div><div className="admin-card"><h2>Artwork</h2><label className="admin-toggle"><input type="checkbox" checked={props.requiresArtwork} onChange={(event) => props.setRequiresArtwork(event.target.checked)} /><span>Requires artwork</span></label><p className="admin-muted">Customers will be prompted to provide artwork details for this product.</p></div><div className="admin-card"><h2>Images</h2><div className="admin-dropzone"><strong>Add images after saving</strong><p>Save this product first, then upload images from the Products list.</p></div></div></section></form>;
 }
-
 function Categories({ categories, busy, createCategory, categoryName, setCategoryName, categorySlug, setCategorySlug }: { categories: Category[]; busy: string; createCategory: (event: React.FormEvent) => void; categoryName: string; setCategoryName: (value: string) => void; categorySlug: string; setCategorySlug: (value: string) => void }) {
   return <><PageHeader title="Categories" eyebrow="Organise products in your shop." /><section className="admin-two-col"><div className="admin-card"><h2>Add Category</h2><form onSubmit={createCategory}><Field label="Name"><input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} required /></Field><Field label="Slug" helper="Leave blank to generate from the name."><input value={categorySlug} onChange={(event) => setCategorySlug(event.target.value)} /></Field><button className="admin-button primary" type="submit" disabled={busy === 'category'}>{busy === 'category' ? 'Saving...' : '+ Add Category'}</button></form></div><div className="admin-card"><h2>Category List</h2>{categories.length ? <div className="admin-category-list">{categories.map((category) => <div key={category.id}><div><strong>{category.name}</strong><small>{category.slug}</small></div><Badge tone={category.is_active ? 'success' : 'neutral'}>{category.is_active ? 'Active' : 'Inactive'}</Badge></div>)}</div> : <EmptyState title="No categories yet." text="Create categories to organise future shop products." />}</div></section></>;
 }
