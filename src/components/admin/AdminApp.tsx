@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { hasSupabaseConfig, supabase } from '../../lib/supabaseClient';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 type Category = {
   id: string;
@@ -47,16 +47,17 @@ export default function AdminApp() {
   const [productType, setProductType] = useState('standard');
   const [pricingMode, setPricingMode] = useState('fixed');
   const [requiresArtwork, setRequiresArtwork] = useState(false);
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
 
-  const canUseSupabase = hasSupabaseConfig && supabase;
+  const canUseSupabase = Boolean(supabase);
 
   const sortedCategories = useMemo(() => [...categories].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)), [categories]);
 
-  async function loadData() {
-    if (!supabase) return;
+  async function loadData(client = supabase) {
+    if (!client) return;
     const [categoryResult, productResult] = await Promise.all([
-      supabase.from('categories').select('id,name,slug,is_active,sort_order').order('sort_order').order('name'),
-      supabase.from('products').select('id,name,slug,product_type,pricing_mode,base_price,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
+      client.from('categories').select('id,name,slug,is_active,sort_order').order('sort_order').order('name'),
+      client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
     ]);
 
     if (categoryResult.error) setNotice(categoryResult.error.message);
@@ -67,23 +68,42 @@ export default function AdminApp() {
   }
 
   useEffect(() => {
-    if (!supabase) {
-      setSessionReady(true);
-      return;
+    let listener: { subscription: { unsubscribe: () => void } } | null = null;
+
+    async function configureSupabase() {
+      try {
+        const response = await fetch('/api/config', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Unable to load shop configuration.');
+        const config = await response.json();
+        if (!config.supabaseUrl || !config.supabaseAnonKey) {
+          setSessionReady(true);
+          return;
+        }
+
+        const client = createClient(config.supabaseUrl, config.supabaseAnonKey);
+        setSupabase(client);
+
+        const { data } = await client.auth.getSession();
+        setIsSignedIn(Boolean(data.session));
+        setSessionReady(true);
+        if (data.session) {
+          await loadData(client);
+        }
+
+        const authListener = client.auth.onAuthStateChange((_event, session) => {
+          setIsSignedIn(Boolean(session));
+          if (session) loadData(client);
+        });
+        listener = authListener.data;
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : 'Unable to load shop configuration.');
+        setSessionReady(true);
+      }
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setIsSignedIn(Boolean(data.session));
-      setSessionReady(true);
-      if (data.session) loadData();
-    });
+    configureSupabase();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsSignedIn(Boolean(session));
-      if (session) loadData();
-    });
-
-    return () => listener.subscription.unsubscribe();
+    return () => listener?.subscription.unsubscribe();
   }, []);
 
   async function signIn(event: React.FormEvent) {
