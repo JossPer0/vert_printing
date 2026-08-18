@@ -1032,7 +1032,7 @@ h3 {
 .admin-table-head,
 .admin-product-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) minmax(100px, 0.55fr) minmax(110px, 0.55fr) minmax(110px, 0.55fr) minmax(230px, 0.9fr);
+  grid-template-columns: 82px minmax(220px, 1.4fr) minmax(100px, 0.5fr) minmax(110px, 0.5fr) minmax(110px, 0.5fr) minmax(240px, 0.95fr);
   gap: 14px;
   align-items: center;
   padding: 14px 18px;
@@ -1053,6 +1053,33 @@ h3 {
 .admin-product-row:hover {
   background: #fdfcfa;
 }
+
+.admin-thumb {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: #fbfaf7;
+}
+
+.admin-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-thumb span {
+  padding: 6px;
+  color: var(--admin-muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+}
+
 
 .admin-product-row > div:first-child,
 .admin-category-list > div > div {
