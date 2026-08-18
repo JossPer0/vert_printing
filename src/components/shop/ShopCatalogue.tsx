@@ -180,11 +180,11 @@ export default function ShopCatalogue() {
     });
   }, [activeCategory, categoryByProduct, productCategories, products, search, sort]);
 
-  if (loading) return <div className="shop-skeleton-grid"><span></span><span></span><span></span></div>;
-  if (error) return <div className="shop-empty"><h2>Shop unavailable</h2><p>{error}</p><a className="button primary" href="/#quote">Request a Quote</a></div>;
-  if (!products.length) return <div className="shop-empty"><h2>Our online catalogue is being updated.</h2><p>Need something now? Tell us what you need and we'll put together a quote.</p><a className="button primary" href="/#quote">Request a Quote</a></div>;
+  if (loading) return <div className="shop-container"><div className="shop-skeleton-grid"><span></span><span></span><span></span></div></div>;
+  if (error) return <div className="shop-container"><div className="shop-empty"><h2>Shop unavailable</h2><p>{error}</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
+  if (!products.length) return <div className="shop-container"><div className="shop-empty"><h2>Our online catalogue is being updated.</h2><p>Need something now? Tell us what you need and we'll put together a quote.</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
 
-  return <>
+  return <div className="shop-container">
     <div className="shop-controls" aria-label="Shop filters">
       {visibleCategories.length > 0 && <div className="shop-categories" aria-label="Product categories">
         <button className={activeCategory === 'all' ? 'active' : ''} type="button" onClick={() => setActiveCategory('all')}>All</button>
@@ -197,5 +197,5 @@ export default function ShopCatalogue() {
     </div>
 
     {filteredProducts.length ? <div className="shop-grid">{filteredProducts.map((product) => <ProductCard key={product.id} product={product} image={images[product.id]} imageUrl={imageUrls[product.id]} categoryName={categoryByProduct[product.id]?.name} />)}</div> : <div className="shop-empty"><h2>No products matched your search.</h2><p>Try another search or browse all products.</p><button className="button primary" type="button" onClick={() => { setSearch(''); setActiveCategory('all'); }}>View All Products</button></div>}
-  </>;
+  </div>;
 }
