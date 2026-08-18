@@ -24,7 +24,7 @@ function productPrice(product) {
 
 function productCta(product) {
   if (product.pricing_mode === 'quote_only' || product.product_type === 'quote_only') return 'Request a Quote';
-  if (product.product_type === 'configurable' || product.pricing_mode === 'from_price') return 'Discuss Options';
+  if (product.product_type === 'configurable' || product.pricing_mode === 'from_price') return 'Choose Options';
   return 'Enquire About This Product';
 }
 

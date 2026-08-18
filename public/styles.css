@@ -1611,18 +1611,18 @@ h3 {
 }
 
 .shop-section {
-  padding: 6px 0 64px;
+  padding: 18px 0 84px;
   background: #fbfaf7;
 }
 
 .shop-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
-  padding: 10px;
+  margin-bottom: 24px;
+  padding: 15px 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fff;
@@ -1732,8 +1732,8 @@ h3 {
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 360px));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 340px));
+  gap: 24px;
   justify-content: start;
 }
 
@@ -1777,12 +1777,17 @@ h3 {
 
 .shop-card-body {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 13px;
+  padding: 18px;
+}
+
+.shop-card-body > div {
+  display: grid;
+  gap: 6px;
 }
 
 .shop-card-body p {
-  margin: 0 0 5px;
+  margin: 0;
   color: var(--teal-dark);
   font-size: 0.78rem;
   font-weight: 900;
@@ -1800,9 +1805,13 @@ h3 {
   font-size: 1.12rem;
 }
 
+.shop-card-body .button {
+  margin-top: 2px;
+}
+
 .shop-support {
   display: block;
-  margin-top: 6px;
+  margin-top: 7px;
   color: var(--muted);
   font-size: 0.92rem;
 }
