@@ -13,7 +13,7 @@ const moneyFormatter = new Intl.NumberFormat('en-ZA', {
 });
 
 function formatMoney(value) {
-  return moneyFormatter.format(value).replace('ZAR', 'R').replace(/\s/g, '');
+  return `R${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function productPrice(product) {
@@ -25,7 +25,7 @@ function productPrice(product) {
 function productCta(product) {
   if (product.pricing_mode === 'quote_only' || product.product_type === 'quote_only') return 'Request a Quote';
   if (product.product_type === 'configurable' || product.pricing_mode === 'from_price') return 'Discuss Options';
-  return 'Enquire';
+  return 'Enquire About This Product';
 }
 
 function productSupportText(product) {

@@ -29,14 +29,8 @@ type ProductCategory = {
   category_id: string;
 };
 
-const moneyFormatter = new Intl.NumberFormat('en-ZA', {
-  style: 'currency',
-  currency: 'ZAR',
-  minimumFractionDigits: 2,
-});
-
 function formatMoney(value: number) {
-  return moneyFormatter.format(value).replace('ZAR', 'R').replace(/\s/g, '');
+  return `R${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function productPrice(product: Product) {
