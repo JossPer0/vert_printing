@@ -1567,21 +1567,45 @@ h3 {
 .shop-controls {
   display: grid;
   gap: 18px;
-  margin-bottom: 26px;
+  margin-bottom: 28px;
 }
 
+.shop-category-row {
+  display: grid;
+  gap: 10px;
+}
+
+.shop-filter-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.shop-filter-heading small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
 .shop-categories {
   display: flex;
   gap: 10px;
   overflow-x: auto;
-  padding-bottom: 3px;
+  scrollbar-width: thin;
+  padding: 2px 0 5px;
 }
 
 .shop-categories button {
   min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 8px 15px;
+  padding: 8px 14px;
   color: var(--ink);
   background: #fff;
   font: inherit;
@@ -1590,19 +1614,59 @@ h3 {
   cursor: pointer;
 }
 
+.shop-categories button span {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  padding: 0 7px;
+  color: var(--muted);
+  background: #f2f1ed;
+  font-size: 0.76rem;
+}
+
+.shop-categories button.active span {
+  color: var(--hot-pink);
+  background: #fff;
+}
+
+.shop-categories button:focus-visible,
+.shop-clear-filters:focus-visible {
+  outline: 3px solid rgba(236, 22, 140, 0.18);
+  outline-offset: 2px;
+}
 .shop-categories button.active {
   color: #fff;
-  border-color: var(--pink);
-  background: var(--pink);
+  border-color: var(--hot-pink);
+  background: var(--hot-pink);
 }
 
 .shop-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(180px, 260px);
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 260px) auto;
   gap: 14px;
   align-items: end;
 }
 
+.shop-clear-filters {
+  min-height: 44px;
+  align-self: end;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shop-clear-filters:hover {
+  border-color: var(--hot-pink);
+  color: var(--hot-pink);
+}
 .shop-toolbar label {
   display: grid;
   gap: 7px;
@@ -1770,6 +1834,21 @@ h3 {
 
   .shop-hero {
     padding: 20px 0 10px;
+  }
+
+  .shop-filter-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .shop-categories {
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+
+  .shop-clear-filters {
+    width: 100%;
   }
 
   .shop-hero .button,

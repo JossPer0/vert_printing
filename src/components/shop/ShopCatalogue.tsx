@@ -149,15 +149,27 @@ export default function ShopCatalogue() {
   }, [images, supabase]);
 
   const categoryById = useMemo(() => Object.fromEntries(categories.map((category) => [category.id, category])), [categories]);
+  const visibleProductIds = useMemo(() => new Set(products.map((product) => product.id)), [products]);
+
   const categoryByProduct = useMemo(() => {
     const map: Record<string, Category> = {};
     for (const relation of productCategories) {
+      if (!visibleProductIds.has(relation.product_id)) continue;
       if (!map[relation.product_id] && categoryById[relation.category_id]) map[relation.product_id] = categoryById[relation.category_id];
     }
     return map;
-  }, [categoryById, productCategories]);
+  }, [categoryById, productCategories, visibleProductIds]);
 
-  const visibleCategories = useMemo(() => categories.filter((category) => productCategories.some((relation) => relation.category_id === category.id)), [categories, productCategories]);
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const relation of productCategories) {
+      if (!visibleProductIds.has(relation.product_id)) continue;
+      counts[relation.category_id] = (counts[relation.category_id] || 0) + 1;
+    }
+    return counts;
+  }, [productCategories, visibleProductIds]);
+
+  const visibleCategories = useMemo(() => categories.filter((category) => (categoryCounts[category.id] || 0) > 0), [categories, categoryCounts]);
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -180,19 +192,26 @@ export default function ShopCatalogue() {
     });
   }, [activeCategory, categoryByProduct, productCategories, products, search, sort]);
 
+  const hasActiveFilters = activeCategory !== 'all' || search.trim().length > 0;
+  const resultLabel = `${filteredProducts.length} ${filteredProducts.length === 1 ? 'product' : 'products'}`;
+
   if (loading) return <div className="shop-container"><div className="shop-skeleton-grid"><span></span><span></span><span></span></div></div>;
   if (error) return <div className="shop-container"><div className="shop-empty"><h2>Shop unavailable</h2><p>{error}</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
   if (!products.length) return <div className="shop-container"><div className="shop-empty"><h2>Our online catalogue is being updated.</h2><p>Need something now? Tell us what you need and we'll put together a quote.</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
 
   return <div className="shop-container">
     <div className="shop-controls" aria-label="Shop filters">
-      {visibleCategories.length > 0 && <div className="shop-categories" aria-label="Product categories">
-        <button className={activeCategory === 'all' ? 'active' : ''} type="button" onClick={() => setActiveCategory('all')}>All</button>
-        {visibleCategories.map((category) => <button className={activeCategory === category.id ? 'active' : ''} key={category.id} type="button" onClick={() => setActiveCategory(category.id)}>{category.name}</button>)}
+      {visibleCategories.length > 0 && <div className="shop-category-row">
+        <div className="shop-filter-heading"><span>Browse by category</span><small>{resultLabel}</small></div>
+        <div className="shop-categories" aria-label="Product categories">
+          <button className={activeCategory === 'all' ? 'active' : ''} type="button" aria-pressed={activeCategory === 'all'} onClick={() => setActiveCategory('all')}>All <span>{products.length}</span></button>
+          {visibleCategories.map((category) => <button className={activeCategory === category.id ? 'active' : ''} key={category.id} type="button" aria-pressed={activeCategory === category.id} onClick={() => setActiveCategory(category.id)}>{category.name} <span>{categoryCounts[category.id] || 0}</span></button>)}
+        </div>
       </div>}
       <div className="shop-toolbar">
         <label><span>Search products</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products..." /></label>
         <label><span>Sort by</span><select value={sort} onChange={(event) => setSort(event.target.value)}><option value="newest">Newest</option><option value="name">Name A-Z</option><option value="price-asc">Price Low to High</option><option value="price-desc">Price High to Low</option></select></label>
+        {hasActiveFilters && <button className="shop-clear-filters" type="button" onClick={() => { setSearch(''); setActiveCategory('all'); }}>Clear filters</button>}
       </div>
     </div>
 
