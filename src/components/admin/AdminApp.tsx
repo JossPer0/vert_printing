@@ -162,7 +162,7 @@ function PublishIcon({ published }: { published: boolean }) {
 }
 
 function ImageIcon() {
-  return <svg className="admin-image-action-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M12 15V8" /><path d="M8.5 11.5L12 8l3.5 3.5" /><path d="M8 18h8" /></svg>;
+  return <svg className="admin-image-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm1.5 2.5v11h11v-11h-11Z" /><path d="M11 15V10H8.5L12 6.5l3.5 3.5H13v5h-2Z" /></svg>;
 }
 
 function EditIcon() {
