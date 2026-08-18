@@ -266,9 +266,26 @@ export default function AdminApp() {
       setBusy('');
       return;
     }
-    const { error } = await supabase.from('product_images').insert({ product_id: product.id, storage_path: path, alt_text: product.name, sort_order: 0 });
+    const existingImage = productImages[product.id];
+    const metadata = { product_id: product.id, storage_path: path, alt_text: product.name, sort_order: 0 };
+    const { error } = existingImage
+      ? await supabase.from('product_images').update(metadata).eq('id', existingImage.id)
+      : await supabase.from('product_images').insert(metadata);
+
     if (error) await handleAppError(error.message);
-    else setNotice({ type: 'success', text: 'Product image uploaded.' });
+    else {
+      setProductImages((current) => ({
+        ...current,
+        [product.id]: {
+          id: existingImage?.id || `${product.id}-pending`,
+          product_id: product.id,
+          storage_path: path,
+          alt_text: product.name,
+          sort_order: 0,
+        },
+      }));
+      setNotice({ type: 'success', text: existingImage ? 'Product image updated.' : 'Product image uploaded.' });
+    }
     setBusy('');
   }
 
