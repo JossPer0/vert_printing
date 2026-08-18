@@ -998,6 +998,25 @@ h3 {
   background: #fff;
 }
 
+.admin-button.success,
+.admin-upload.success {
+  color: #fff;
+  border-color: var(--admin-teal);
+  background: var(--admin-teal);
+}
+
+.admin-button.danger {
+  color: #fff;
+  border-color: var(--admin-danger);
+  background: var(--admin-danger);
+}
+
+.admin-upload.secondary {
+  color: var(--admin-text);
+  border-color: var(--admin-border);
+  background: #fff;
+}
+
 .admin-button:disabled {
   cursor: wait;
   opacity: 0.62;
