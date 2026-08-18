@@ -1,0 +1,28 @@
+---
+import AdminApp from '../../components/admin/AdminApp';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Shop Manager | Vert Printing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="admin-page">
+    <header class="admin-header">
+      <a class="brand" href="/" aria-label="Vert Printing home">
+        <img class="brand-logo" src="/assets/vert_logo_header.png" alt="Vert Printing" width="1255" height="570" />
+        <span><strong>Vert Printing</strong><small>Shop Manager</small></span>
+      </a>
+      <a class="button secondary" href="/">View Site</a>
+    </header>
+    <main class="admin-main">
+      <AdminApp client:load />
+    </main>
+  </body>
+</html>

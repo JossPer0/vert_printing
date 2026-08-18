@@ -1,0 +1,67 @@
+const navToggle = document.querySelector(".nav-toggle");
+const siteNav = document.querySelector(".site-nav");
+const quoteForm = document.querySelector("#quote-form");
+const formNote = document.querySelector("#form-note");
+
+navToggle?.addEventListener("click", () => {
+  const isOpen = siteNav.classList.toggle("open");
+  navToggle.setAttribute("aria-expanded", String(isOpen));
+});
+
+siteNav?.addEventListener("click", (event) => {
+  if (event.target instanceof HTMLAnchorElement) {
+    siteNav.classList.remove("open");
+    navToggle?.setAttribute("aria-expanded", "false");
+  }
+});
+
+function setFormState(message, type = "info") {
+  if (!formNote) return;
+  formNote.textContent = message;
+  formNote.dataset.type = type;
+}
+
+quoteForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const submitButton = quoteForm.querySelector('button[type="submit"]');
+  const formData = new FormData(quoteForm);
+
+  if (formData.get("website")) return;
+
+  const turnstileToken = formData.get("cf-turnstile-response");
+  if (!turnstileToken) {
+    setFormState("Please complete the human verification before sending your quote request.", "error");
+    return;
+  }
+
+  const payload = Object.fromEntries(formData.entries());
+  payload.turnstileToken = turnstileToken;
+  delete payload["cf-turnstile-response"];
+  delete payload.artwork;
+
+  submitButton.disabled = true;
+  setFormState("Sending your quote request...", "info");
+
+  try {
+    const response = await fetch("/api/quote", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || "Your quote request could not be sent. Please try again.");
+    }
+
+    quoteForm.reset();
+    window.turnstile?.reset();
+    setFormState(result.message || "Thanks — your quote request has been received.", "success");
+  } catch (error) {
+    window.turnstile?.reset();
+    setFormState(error.message || "Your quote request could not be sent. Please email or WhatsApp us directly.", "error");
+  } finally {
+    submitButton.disabled = false;
+  }
+});

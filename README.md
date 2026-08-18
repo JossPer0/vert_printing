@@ -1,39 +1,59 @@
 # Vert Printing Website
 
-Static brochure website for Vert Printing, ready for Cloudflare Pages.
+Astro brochure site and Phase 1 shop-management foundation for Vert Printing, deployed on Cloudflare Pages.
 
-## Local Preview
+## Local Development
 
-Open `index.html` directly in a browser, or run any static file server from this folder.
+Install dependencies once, then run Astro locally:
+
+```sh
+npm install
+npm run dev
+```
+
+Build the Cloudflare Pages output:
+
+```sh
+npm run build
+```
+
+The generated site is written to `dist/`.
 
 ## Cloudflare Pages
 
 Use these settings:
 
-- Framework preset: `None`
-- Build command: leave blank
-- Build output directory: `/`
+- Framework preset: `Astro`
+- Build command: `npm run build`
+- Build output directory: `dist`
 - Root directory: `/`
 
-## Future Upgrade Path
+`wrangler.toml` also declares `pages_build_output_dir = "dist"`.
 
-- Add Cloudflare Pages Functions for a real quote form endpoint.
-- Add Turnstile spam protection before accepting public form submissions.
-- Move services/gallery content into a CMS or structured JSON.
-- Add ecommerce only for fixed-price products or event packages.
+## Required Environment
 
-## Quote Form Email
+Set public Supabase values as Cloudflare Pages environment variables:
 
-The quote form submits to a Cloudflare Pages Function at `/api/quote` and sends email through Postmark.
+- `PUBLIC_SUPABASE_URL`
+- `PUBLIC_SUPABASE_ANON_KEY`
 
-Set these Cloudflare Pages environment variables and secrets:
+Set these as Cloudflare Pages secrets:
 
-- `POSTMARK_SERVER_TOKEN` secret: Postmark server API token.
-- `POSTMARK_FROM_EMAIL` variable: verified sender address in Postmark, for example `info@vertprinting.co.za`.
-- `QUOTE_TO_EMAIL` variable: destination inbox for quote requests, for example `info@vertprinting.co.za`.
-- `POSTMARK_MESSAGE_STREAM` variable: optional, defaults to `outbound`.
-- `TURNSTILE_SECRET` secret: Cloudflare Turnstile secret key.
+- `TURNSTILE_SECRET`
+- `POSTMARK_SERVER_TOKEN`
 
-The Turnstile site key is embedded in `index.html`; keep `TURNSTILE_SECRET` configured as a Cloudflare Pages secret.
+Existing quote-form variables remain in `wrangler.toml`:
 
-Artwork uploads are not emailed yet. The form collects the request details, and customers can send artwork by reply/WhatsApp until file storage is added.
+- `POSTMARK_FROM_EMAIL`
+- `QUOTE_TO_EMAIL`
+- `POSTMARK_MESSAGE_STREAM`
+
+## Shop Manager
+
+The admin entry point is `/admin`. It uses Supabase Auth and RLS, so only users with an admin `profiles` row can manage catalog records.
+
+See:
+
+- `docs/SUPABASE_SETUP.md`
+- `docs/SHOP_MANAGER_GUIDE.md`
+- `docs/VERT_SHOP_ARCHITECTURE.md`
