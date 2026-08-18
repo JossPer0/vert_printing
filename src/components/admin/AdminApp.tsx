@@ -162,7 +162,7 @@ function PublishIcon({ published }: { published: boolean }) {
 }
 
 function ImageIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 13l3-3 4 5 2-2 3 4" /><circle cx="16" cy="9" r="1.5" /></svg>;
+  return <svg className="admin-image-action-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M12 15V8" /><path d="M8.5 11.5L12 8l3.5 3.5" /><path d="M8 18h8" /></svg>;
 }
 
 function EditIcon() {

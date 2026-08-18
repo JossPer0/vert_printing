@@ -1218,6 +1218,12 @@ h3 {
   stroke-width: 2.3;
 }
 
+.admin-icon-button .admin-image-action-icon {
+  width: 23px;
+  height: 23px;
+  stroke-width: 2.6;
+}
+
 @media (max-width: 1180px) {
   .admin-table-card {
     overflow-x: auto;
