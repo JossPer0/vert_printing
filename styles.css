@@ -1072,47 +1072,16 @@ h3 {
 .admin-product-row:hover {
   background: #fdfcfa;
 }
-.admin-check-list,
-.admin-category-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.admin-check-list label,
-.admin-category-pills label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.admin-category-select {
+  width: 100%;
+  min-height: 40px;
   border: 1px solid var(--admin-border);
-  border-radius: 999px;
-  padding: 8px 12px;
-  background: #fff;
-  font-weight: 900;
-}
-
-.admin-check-list input,
-.admin-category-pills input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--admin-pink);
-}
-
-.admin-category-pills span,
-.admin-category-pills small {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  border-radius: 999px;
-  padding: 5px 10px;
+  border-radius: 8px;
+  padding: 8px 10px;
   color: var(--admin-text);
-  background: #f2f1ed;
-  font-size: 0.78rem;
-  font-weight: 900;
-}
-
-.admin-category-pills small {
-  color: var(--admin-muted);
+  background: #fff;
+  font: inherit;
+  font-weight: 800;
 }
 
 .admin-thumb {
@@ -1452,7 +1421,7 @@ h3 {
   }
 
   .admin-product-row > .admin-badge,
-  .admin-product-row > .admin-category-pills {
+  .admin-product-row > .admin-category-select {
     grid-column: 2;
   }
 
