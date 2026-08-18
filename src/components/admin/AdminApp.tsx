@@ -24,6 +24,18 @@ type Product = {
   product_type: string;
   pricing_mode: string;
   base_price: number | null;
+  short_description: string | null;
+  description: string | null;
+  material: string | null;
+  dimensions: string | null;
+  colour_information: string | null;
+  finish: string | null;
+  weight: string | null;
+  lead_time_text: string | null;
+  customisation_information: string | null;
+  care_instructions: string | null;
+  whats_included: string | null;
+  made_to_order_information: string | null;
   is_published: boolean;
   is_active: boolean;
   requires_artwork: boolean;
@@ -35,9 +47,79 @@ type ProductCategory = {
   category_id: string;
 };
 
+type ProductSpecification = {
+  id?: string;
+  product_id?: string;
+  label: string;
+  value: string;
+  sort_order: number;
+};
+
+type ProductInfoState = {
+  short_description: string;
+  description: string;
+  material: string;
+  dimensions: string;
+  colour_information: string;
+  finish: string;
+  weight: string;
+  lead_time_text: string;
+  customisation_information: string;
+  care_instructions: string;
+  whats_included: string;
+  made_to_order_information: string;
+};
+
+const emptyProductInfo = (): ProductInfoState => ({
+  short_description: '',
+  description: '',
+  material: '',
+  dimensions: '',
+  colour_information: '',
+  finish: '',
+  weight: '',
+  lead_time_text: '',
+  customisation_information: '',
+  care_instructions: '',
+  whats_included: '',
+  made_to_order_information: '',
+});
+
+const infoFromProduct = (product?: Product): ProductInfoState => ({
+  short_description: product?.short_description || '',
+  description: product?.description || '',
+  material: product?.material || '',
+  dimensions: product?.dimensions || '',
+  colour_information: product?.colour_information || '',
+  finish: product?.finish || '',
+  weight: product?.weight || '',
+  lead_time_text: product?.lead_time_text || '',
+  customisation_information: product?.customisation_information || '',
+  care_instructions: product?.care_instructions || '',
+  whats_included: product?.whats_included || '',
+  made_to_order_information: product?.made_to_order_information || '',
+});
+
+const cleanText = (value: string) => value.trim() || null;
+
+const productInfoPayload = (info: ProductInfoState) => ({
+  short_description: cleanText(info.short_description),
+  description: cleanText(info.description),
+  material: cleanText(info.material),
+  dimensions: cleanText(info.dimensions),
+  colour_information: cleanText(info.colour_information),
+  finish: cleanText(info.finish),
+  weight: cleanText(info.weight),
+  lead_time_text: cleanText(info.lead_time_text),
+  customisation_information: cleanText(info.customisation_information),
+  care_instructions: cleanText(info.care_instructions),
+  whats_included: cleanText(info.whats_included),
+  made_to_order_information: cleanText(info.made_to_order_information),
+});
+
 type Notice = { type: 'info' | 'success' | 'error'; text: string } | null;
 
-type View = 'dashboard' | 'products' | 'new-product' | 'categories';
+type View = 'dashboard' | 'products' | 'new-product' | 'edit-product' | 'categories';
 
 const slugify = (value: string) =>
   value
@@ -93,6 +175,7 @@ export default function AdminApp() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productImages, setProductImages] = useState<Record<string, ProductImage>>({});
   const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [productSpecifications, setProductSpecifications] = useState<Record<string, ProductSpecification[]>>({});
   const [categoryName, setCategoryName] = useState('');
   const [categorySlug, setCategorySlug] = useState('');
   const [productName, setProductName] = useState('');
@@ -101,6 +184,8 @@ export default function AdminApp() {
   const [productType, setProductType] = useState('standard');
   const [pricingMode, setPricingMode] = useState('fixed');
   const [requiresArtwork, setRequiresArtwork] = useState(false);
+  const [productInfo, setProductInfo] = useState<ProductInfoState>(emptyProductInfo());
+  const [specifications, setSpecifications] = useState<ProductSpecification[]>([{ label: '', value: '', sort_order: 0 }]);
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [busy, setBusy] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -110,6 +195,7 @@ export default function AdminApp() {
     if (typeof window === 'undefined') return 'dashboard';
     const path = window.location.pathname.replace(/\/$/, '');
     if (path === '/admin/products/new') return 'new-product';
+    if (path.startsWith('/admin/products/') && path !== '/admin/products') return 'edit-product';
     if (path === '/admin/products') return 'products';
     if (path === '/admin/categories') return 'categories';
     return 'dashboard';
@@ -129,24 +215,45 @@ export default function AdminApp() {
       setProductImages({});
       setCategories([]);
       setProductCategories([]);
+      setProductSpecifications({});
+      setProductSpecifications({});
+      setProductSpecifications({});
     }
   }
 
   async function loadData(client = supabase) {
     if (!client) return;
     setBusy('loading');
-    const [categoryResult, productResult, imageResult, productCategoryResult] = await Promise.all([
+    let [categoryResult, productResult, imageResult, productCategoryResult, specificationResult] = await Promise.all([
       client.from('categories').select('id,name,slug,is_active,sort_order').order('sort_order').order('name'),
-      client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
+      client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
       client.from('product_images').select('id,product_id,storage_path,alt_text,sort_order').order('sort_order'),
       client.from('product_categories').select('product_id,category_id'),
+      client.from('product_specifications').select('id,product_id,label,value,sort_order').order('sort_order'),
     ]);
 
     if (categoryResult.error) await handleAppError(categoryResult.error.message);
     else setCategories(categoryResult.data || []);
 
+    if (productResult.error) {
+      productResult = await client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false });
+    }
     if (productResult.error) await handleAppError(productResult.error.message);
-    else setProducts(productResult.data || []);
+    else setProducts((productResult.data || []).map((product) => ({
+      short_description: null,
+      description: null,
+      material: null,
+      dimensions: null,
+      colour_information: null,
+      finish: null,
+      weight: null,
+      lead_time_text: null,
+      customisation_information: null,
+      care_instructions: null,
+      whats_included: null,
+      made_to_order_information: null,
+      ...product,
+    })));
 
     if (imageResult.error) await handleAppError(imageResult.error.message);
     else {
@@ -159,6 +266,14 @@ export default function AdminApp() {
 
     if (productCategoryResult.error) await handleAppError(productCategoryResult.error.message);
     else setProductCategories(productCategoryResult.data || []);
+
+    if (!specificationResult.error) {
+      const grouped: Record<string, ProductSpecification[]> = {};
+      for (const spec of specificationResult.data || []) {
+        grouped[spec.product_id] = [...(grouped[spec.product_id] || []), spec];
+      }
+      setProductSpecifications(grouped);
+    } else setProductSpecifications({});
     setBusy('');
   }
 
@@ -235,6 +350,25 @@ export default function AdminApp() {
     setBusy('');
   }
 
+  async function saveProductSpecifications(productId: string, rows: ProductSpecification[]) {
+    if (!supabase) return false;
+    const cleaned = rows
+      .map((row, index) => ({ product_id: productId, label: row.label.trim(), value: row.value.trim(), sort_order: index }))
+      .filter((row) => row.label && row.value);
+    const deleteResult = await supabase.from('product_specifications').delete().eq('product_id', productId);
+    if (deleteResult.error) {
+      await handleAppError(deleteResult.error.message);
+      return false;
+    }
+    if (!cleaned.length) return true;
+    const insertResult = await supabase.from('product_specifications').insert(cleaned);
+    if (insertResult.error) {
+      await handleAppError(insertResult.error.message);
+      return false;
+    }
+    return true;
+  }
+
   async function createProduct(event: React.FormEvent, publish = false) {
     event.preventDefault();
     if (!supabase || !productName.trim()) return;
@@ -247,26 +381,69 @@ export default function AdminApp() {
       product_type: productType,
       pricing_mode: pricingMode,
       base_price: pricingMode === 'quote_only' ? null : price,
+      ...productInfoPayload(productInfo),
       requires_artwork: requiresArtwork,
       is_active: true,
       is_published: publish,
       minimum_quantity: 1,
     }).select('id').single();
     if (error) await handleAppError(error.message);
-    else if (selectedCategoryId && data?.id) {
-      const categoryResult = await supabase.from('product_categories').insert({ product_id: data.id, category_id: selectedCategoryId });
-      if (categoryResult.error) await handleAppError(categoryResult.error.message);
-      else setNotice({ type: 'success', text: publish ? 'Product published and categorised.' : 'Product draft saved and categorised.' });
-    } else setNotice({ type: 'success', text: publish ? 'Product published.' : 'Product draft saved.' });
+    else if (data?.id) {
+      let saved = true;
+      if (selectedCategoryId) {
+        const categoryResult = await supabase.from('product_categories').insert({ product_id: data.id, category_id: selectedCategoryId });
+        if (categoryResult.error) {
+          await handleAppError(categoryResult.error.message);
+          saved = false;
+        }
+      }
+      if (saved) saved = await saveProductSpecifications(data.id, specifications);
+      if (saved) setNotice({ type: 'success', text: publish ? 'Product published.' : 'Product draft saved.' });
+    }
     if (!error) {
       setProductName('');
       setSelectedCategoryId('');
       setBasePrice('');
       setRequiresArtwork(false);
+      setProductInfo(emptyProductInfo());
+      setSpecifications([{ label: '', value: '', sort_order: 0 }]);
       await loadData();
       if (typeof window !== 'undefined') window.history.pushState(null, '', '/admin/products');
     }
     setBusy('');
+  }
+
+  async function updateProduct(event: React.FormEvent, product: Product) {
+    event.preventDefault();
+    if (!supabase || !productName.trim()) return;
+    setBusy(`product-${product.id}`);
+    const price = basePrice.trim() ? Number(basePrice) : null;
+    const { error } = await supabase.from('products').update({
+      name: productName.trim(),
+      slug: slugify(productName),
+      product_type: productType,
+      pricing_mode: pricingMode,
+      base_price: pricingMode === 'quote_only' ? null : price,
+      ...productInfoPayload(productInfo),
+      requires_artwork: requiresArtwork,
+    }).eq('id', product.id);
+    if (error) await handleAppError(error.message);
+    else {
+      const specsSaved = await saveProductSpecifications(product.id, specifications);
+      if (specsSaved) setNotice({ type: 'success', text: 'Product updated.' });
+    }
+    if (!error) await loadData();
+    setBusy('');
+  }
+
+  function loadProductForm(product: Product, rows: ProductSpecification[] = []) {
+    setProductName(product.name);
+    setBasePrice(product.base_price === null ? '' : String(product.base_price));
+    setProductType(product.product_type);
+    setPricingMode(product.pricing_mode);
+    setRequiresArtwork(product.requires_artwork);
+    setProductInfo(infoFromProduct(product));
+    setSpecifications(rows.length ? rows.map((row, index) => ({ ...row, sort_order: index })) : [{ label: '', value: '', sort_order: 0 }]);
   }
 
   async function updateProductCategory(product: Product, categoryId: string) {
@@ -359,7 +536,8 @@ export default function AdminApp() {
         {notice && <p className={`admin-notice ${notice.type}`}>{notice.text}</p>}
         {view === 'dashboard' && <Dashboard products={products} categories={categories} publishedCount={publishedCount} draftCount={draftCount} busy={busy} navigate={navigate} />}
         {view === 'products' && <Products products={products} productImages={productImages} productCategories={productCategories} categories={sortedCategories} supabase={supabase} busy={busy} navigate={navigate} togglePublish={togglePublish} uploadProductImage={uploadProductImage} setPreviewImage={setPreviewImage} updateProductCategory={updateProductCategory} />}
-        {view === 'new-product' && <NewProduct busy={busy} createProduct={createProduct} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} categories={sortedCategories} selectedCategoryId={selectedCategoryId} setSelectedCategoryId={setSelectedCategoryId} />}
+        {view === 'new-product' && <ProductEditor mode="new" busy={busy} onSubmit={createProduct} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} categories={sortedCategories} selectedCategoryId={selectedCategoryId} setSelectedCategoryId={setSelectedCategoryId} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} />}
+        {view === 'edit-product' && <EditProduct products={products} productSpecifications={productSpecifications} busy={busy} updateProduct={updateProduct} loadProductForm={loadProductForm} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} />}
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} />}
       </main>
     </div>
@@ -392,12 +570,44 @@ function Products({ products, productImages, productCategories, categories, supa
   return <><PageHeader title="Products" eyebrow="Manage the products shown in your online shop." actions={<button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button>} />{products.length ? <section className="admin-card admin-table-card"><div className="admin-table-head"><span>Image</span><span>Product</span><span>Slug</span><span>Price</span><span>Type</span><span>Categories</span><span>Status</span><span>Actions</span></div>{products.map((product) => {
     const url = imageUrl(product);
     const assignedCategories = categoriesByProduct[product.id] || [];
-    return <div className="admin-product-row" key={product.id}><button className="admin-thumb" type="button" disabled={!url} onClick={() => url && setPreviewImage({ src: url, alt: productImages[product.id]?.alt_text || product.name })}>{url ? <img src={url} alt={productImages[product.id]?.alt_text || product.name} /> : <span>No image</span>}</button><strong>{product.name}</strong><span>{product.slug}</span><span>{formatMoney(product.base_price)}</span><span>{product.product_type.replace('_', ' ')}</span><select className="admin-category-select" value={assignedCategories[0]?.id || ''} disabled={busy === `categories-${product.id}` || !categories.length} onChange={(event) => updateProductCategory(product, event.target.value)}><option value="">No category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><Badge tone={product.is_published ? 'success' : 'neutral'}>{product.is_published ? 'Published' : 'Draft'}</Badge><div className="admin-row-actions"><button className={`admin-button admin-icon-button ${product.is_published ? 'danger' : 'success'}`} type="button" title={product.is_published ? 'Unpublish product' : 'Publish product'} aria-label={product.is_published ? 'Unpublish product' : 'Publish product'} disabled={busy === product.id} onClick={() => togglePublish(product)}><PublishIcon published={product.is_published} /></button><label className={`admin-upload admin-icon-button ${url ? 'success' : 'secondary'}`} title={url ? 'Update image' : 'Add image'} aria-label={url ? 'Update image' : 'Add image'}><ImageIcon /><input type="file" accept="image/*" onChange={(event) => uploadProductImage(product, event.currentTarget.files)} /></label></div></div>;
+    return <div className="admin-product-row" key={product.id}><button className="admin-thumb" type="button" disabled={!url} onClick={() => url && setPreviewImage({ src: url, alt: productImages[product.id]?.alt_text || product.name })}>{url ? <img src={url} alt={productImages[product.id]?.alt_text || product.name} /> : <span>No image</span>}</button><strong><a className="admin-product-link" href={`/admin/products/${product.id}`}>{product.name}</a></strong><span>{product.slug}</span><span>{formatMoney(product.base_price)}</span><span>{product.product_type.replace('_', ' ')}</span><select className="admin-category-select" value={assignedCategories[0]?.id || ''} disabled={busy === `categories-${product.id}` || !categories.length} onChange={(event) => updateProductCategory(product, event.target.value)}><option value="">No category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><Badge tone={product.is_published ? 'success' : 'neutral'}>{product.is_published ? 'Published' : 'Draft'}</Badge><div className="admin-row-actions"><a className="admin-button admin-icon-button secondary" href={`/admin/products/${product.id}`} title="Edit product" aria-label="Edit product">Edit</a><button className={`admin-button admin-icon-button ${product.is_published ? 'danger' : 'success'}`} type="button" title={product.is_published ? 'Unpublish product' : 'Publish product'} aria-label={product.is_published ? 'Unpublish product' : 'Publish product'} disabled={busy === product.id} onClick={() => togglePublish(product)}><PublishIcon published={product.is_published} /></button><label className={`admin-upload admin-icon-button ${url ? 'success' : 'secondary'}`} title={url ? 'Update image' : 'Add image'} aria-label={url ? 'Update image' : 'Add image'}><ImageIcon /><input type="file" accept="image/*" onChange={(event) => uploadProductImage(product, event.currentTarget.files)} /></label></div></div>;
   })}</section> : <EmptyState title="You haven't added any products yet." text="Add your first product to start building the Vert online catalogue." action={<button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button>} />}</>;
 }
-function NewProduct(props: { busy: string; createProduct: (event: React.FormEvent, publish?: boolean) => void; productName: string; setProductName: (value: string) => void; productType: string; setProductType: (value: string) => void; pricingMode: string; setPricingMode: (value: string) => void; basePrice: string; setBasePrice: (value: string) => void; requiresArtwork: boolean; setRequiresArtwork: (value: boolean) => void; categories: Category[]; selectedCategoryId: string; setSelectedCategoryId: (value: string) => void }) {
-  return <form onSubmit={(event) => props.createProduct(event, false)}><PageHeader title="Add Product" eyebrow="Create a new product for the Vert shop." actions={<><a className="admin-button secondary" href="/admin/products">Cancel</a><button className="admin-button secondary" type="submit" disabled={props.busy === 'product'}>Save Draft</button><button className="admin-button primary" type="button" disabled={props.busy === 'publish-new'} onClick={(event) => props.createProduct(event as unknown as React.FormEvent, true)}>Publish</button></>} /><section className="admin-form-grid"><div className="admin-card"><h2>Basic Information</h2><Field label="Product name"><input value={props.productName} onChange={(event) => props.setProductName(event.target.value)} required /></Field><Field label="Product type" helper="Use Quote Only when the product cannot be priced upfront."><select value={props.productType} onChange={(event) => props.setProductType(event.target.value)}><option value="standard">Standard</option><option value="configurable">Configurable</option><option value="quote_only">Quote Only</option></select></Field></div><div className="admin-card"><h2>Pricing</h2><Field label="Pricing mode"><select value={props.pricingMode} onChange={(event) => props.setPricingMode(event.target.value)}><option value="fixed">Fixed Price</option><option value="from_price">From Price</option><option value="quote_only">Quote Only</option></select></Field><Field label="Base price" helper="Displayed in South African Rand."><input value={props.basePrice} onChange={(event) => props.setBasePrice(event.target.value)} type="number" min="0" step="0.01" disabled={props.pricingMode === 'quote_only'} /></Field></div><div className="admin-card"><h2>Category</h2><Field label="Product category" helper="Optional. Create categories first if this list is empty."><select value={props.selectedCategoryId} onChange={(event) => props.setSelectedCategoryId(event.target.value)} disabled={!props.categories.length}><option value="">No category</option>{props.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field></div><div className="admin-card"><h2>Artwork</h2><label className="admin-toggle"><input type="checkbox" checked={props.requiresArtwork} onChange={(event) => props.setRequiresArtwork(event.target.checked)} /><span>Requires artwork</span></label><p className="admin-muted">Customers will be prompted to provide artwork details for this product.</p></div><div className="admin-card"><h2>Images</h2><div className="admin-dropzone"><strong>Add images after saving</strong><p>Save this product first, then upload images from the Products list.</p></div></div></section></form>;
+function ProductInformationFields({ productInfo, setProductInfo }: { productInfo: ProductInfoState; setProductInfo: (value: ProductInfoState) => void }) {
+  const update = (key: keyof ProductInfoState, value: string) => setProductInfo({ ...productInfo, [key]: value });
+  return <>
+    <div className="admin-card admin-card-wide"><h2>Product Information</h2><p className="admin-muted">Use this for information customers need to understand the product. If a choice affects the order, such as size or colour selection, add it later as a Product Option instead.</p><div className="admin-field-grid"><Field label="Short description" helper="A short customer-facing sentence shown near the product title."><textarea value={productInfo.short_description} onChange={(event) => update('short_description', event.target.value)} rows={3} /></Field><Field label="Lead time"><input value={productInfo.lead_time_text} onChange={(event) => update('lead_time_text', event.target.value)} placeholder="2-3 working days" /></Field></div><Field label="Full description"><textarea value={productInfo.description} onChange={(event) => update('description', event.target.value)} rows={6} /></Field></div>
+    <div className="admin-card admin-card-wide"><h2>Materials & Physical Details</h2><div className="admin-field-grid"><Field label="Material"><input value={productInfo.material} onChange={(event) => update('material', event.target.value)} placeholder="PETG, acrylic, vinyl" /></Field><Field label="Dimensions"><input value={productInfo.dimensions} onChange={(event) => update('dimensions', event.target.value)} placeholder="180 x 120 x 210 mm" /></Field><Field label="Colour information" helper="Information only. Use Product Options for selectable colours."><input value={productInfo.colour_information} onChange={(event) => update('colour_information', event.target.value)} placeholder="White, black and grey available" /></Field><Field label="Finish"><input value={productInfo.finish} onChange={(event) => update('finish', event.target.value)} placeholder="Natural 3D printed finish" /></Field><Field label="Weight"><input value={productInfo.weight} onChange={(event) => update('weight', event.target.value)} placeholder="Approx. 250 g" /></Field><Field label="Made-to-order information"><input value={productInfo.made_to_order_information} onChange={(event) => update('made_to_order_information', event.target.value)} placeholder="Made to order after artwork approval" /></Field></div></div>
+    <div className="admin-card admin-card-wide"><h2>Customer Guidance</h2><div className="admin-field-grid"><Field label="Customisation information"><textarea value={productInfo.customisation_information} onChange={(event) => update('customisation_information', event.target.value)} rows={4} /></Field><Field label="Care instructions"><textarea value={productInfo.care_instructions} onChange={(event) => update('care_instructions', event.target.value)} rows={4} /></Field></div><Field label="What's included"><textarea value={productInfo.whats_included} onChange={(event) => update('whats_included', event.target.value)} rows={4} /></Field></div>
+  </>;
 }
+
+function SpecificationEditor({ specifications, setSpecifications }: { specifications: ProductSpecification[]; setSpecifications: (value: ProductSpecification[]) => void }) {
+  const update = (index: number, key: 'label' | 'value', value: string) => setSpecifications(specifications.map((row, rowIndex) => rowIndex === index ? { ...row, [key]: value } : row));
+  const remove = (index: number) => setSpecifications(specifications.length === 1 ? [{ label: '', value: '', sort_order: 0 }] : specifications.filter((_row, rowIndex) => rowIndex !== index).map((row, rowIndex) => ({ ...row, sort_order: rowIndex })));
+  return <div className="admin-card admin-card-wide"><h2>Additional Specifications</h2><p className="admin-muted">Add extra informational rows such as layer height, maximum print area or included fittings. Leave blank rows empty.</p><div className="admin-spec-list">{specifications.map((row, index) => <div className="admin-spec-row" key={index}><Field label="Label"><input value={row.label} onChange={(event) => update(index, 'label', event.target.value)} placeholder="Material" /></Field><Field label="Value"><input value={row.value} onChange={(event) => update(index, 'value', event.target.value)} placeholder="PETG" /></Field><button className="admin-button secondary" type="button" onClick={() => remove(index)}>Remove</button></div>)}</div><button className="admin-button secondary" type="button" onClick={() => setSpecifications([...specifications, { label: '', value: '', sort_order: specifications.length }])}>+ Add specification</button></div>;
+}
+
+function ProductEditor(props: { mode: 'new' | 'edit'; busy: string; onSubmit: (event: React.FormEvent, publish?: boolean) => void; productName: string; setProductName: (value: string) => void; productType: string; setProductType: (value: string) => void; pricingMode: string; setPricingMode: (value: string) => void; basePrice: string; setBasePrice: (value: string) => void; requiresArtwork: boolean; setRequiresArtwork: (value: boolean) => void; categories?: Category[]; selectedCategoryId?: string; setSelectedCategoryId?: (value: string) => void; productInfo: ProductInfoState; setProductInfo: (value: ProductInfoState) => void; specifications: ProductSpecification[]; setSpecifications: (value: ProductSpecification[]) => void }) {
+  const isEdit = props.mode === 'edit';
+  return <form onSubmit={(event) => props.onSubmit(event, false)}><PageHeader title={isEdit ? 'Edit Product' : 'Add Product'} eyebrow={isEdit ? 'Update product details shown to customers.' : 'Create a new product for the Vert shop.'} actions={<><a className="admin-button secondary" href="/admin/products">Cancel</a>{!isEdit && <button className="admin-button secondary" type="submit" disabled={props.busy === 'product'}>Save Draft</button>}<button className="admin-button primary" type={isEdit ? 'submit' : 'button'} disabled={props.busy === 'publish-new' || props.busy.startsWith('product-')} onClick={!isEdit ? (event) => props.onSubmit(event as unknown as React.FormEvent, true) : undefined}>{isEdit ? 'Save Changes' : 'Publish'}</button></>} /><section className="admin-form-grid"><div className="admin-card"><h2>Basic Information</h2><Field label="Product name"><input value={props.productName} onChange={(event) => props.setProductName(event.target.value)} required /></Field><Field label="Product type" helper="Use Quote Only when the product cannot be priced upfront."><select value={props.productType} onChange={(event) => props.setProductType(event.target.value)}><option value="standard">Standard</option><option value="configurable">Configurable</option><option value="quote_only">Quote Only</option></select></Field></div><div className="admin-card"><h2>Pricing</h2><Field label="Pricing mode"><select value={props.pricingMode} onChange={(event) => props.setPricingMode(event.target.value)}><option value="fixed">Fixed Price</option><option value="from_price">From Price</option><option value="quote_only">Quote Only</option></select></Field><Field label="Base price" helper="Displayed in South African Rand."><input value={props.basePrice} onChange={(event) => props.setBasePrice(event.target.value)} type="number" min="0" step="0.01" disabled={props.pricingMode === 'quote_only'} /></Field></div>{!isEdit && <div className="admin-card"><h2>Category</h2><Field label="Product category" helper="Optional. Create categories first if this list is empty."><select value={props.selectedCategoryId || ''} onChange={(event) => props.setSelectedCategoryId?.(event.target.value)} disabled={!props.categories?.length}><option value="">No category</option>{props.categories?.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field></div>}<div className="admin-card"><h2>Artwork</h2><label className="admin-toggle"><input type="checkbox" checked={props.requiresArtwork} onChange={(event) => props.setRequiresArtwork(event.target.checked)} /><span>Requires artwork</span></label><p className="admin-muted">Customers will be prompted to provide artwork details for this product.</p></div>{!isEdit && <div className="admin-card"><h2>Images</h2><div className="admin-dropzone"><strong>Add images after saving</strong><p>Save this product first, then upload images from the Products list.</p></div></div>}<ProductInformationFields productInfo={props.productInfo} setProductInfo={props.setProductInfo} /><SpecificationEditor specifications={props.specifications} setSpecifications={props.setSpecifications} /></section></form>;
+}
+
+function EditProduct(props: { products: Product[]; productSpecifications: Record<string, ProductSpecification[]>; busy: string; updateProduct: (event: React.FormEvent, product: Product) => void; loadProductForm: (product: Product, rows: ProductSpecification[]) => void; productName: string; setProductName: (value: string) => void; productType: string; setProductType: (value: string) => void; pricingMode: string; setPricingMode: (value: string) => void; basePrice: string; setBasePrice: (value: string) => void; requiresArtwork: boolean; setRequiresArtwork: (value: boolean) => void; productInfo: ProductInfoState; setProductInfo: (value: ProductInfoState) => void; specifications: ProductSpecification[]; setSpecifications: (value: ProductSpecification[]) => void }) {
+  const productId = typeof window === 'undefined' ? '' : window.location.pathname.split('/').filter(Boolean).pop() || '';
+  const product = props.products.find((item) => item.id === productId);
+  const [loadedId, setLoadedId] = useState('');
+  useEffect(() => {
+    if (product && loadedId !== product.id) {
+      props.loadProductForm(product, props.productSpecifications[product.id] || []);
+      setLoadedId(product.id);
+    }
+  }, [product, loadedId, props]);
+  if (props.busy === 'loading') return <section className="admin-card"><p className="admin-muted">Loading product...</p></section>;
+  if (!product) return <EmptyState title="Product not found." text="This product could not be loaded. Return to the product list and try again." action={<a className="admin-button secondary" href="/admin/products">Back to Products</a>} />;
+  return <ProductEditor mode="edit" busy={props.busy} onSubmit={(event) => props.updateProduct(event, product)} productName={props.productName} setProductName={props.setProductName} productType={props.productType} setProductType={props.setProductType} pricingMode={props.pricingMode} setPricingMode={props.setPricingMode} basePrice={props.basePrice} setBasePrice={props.setBasePrice} requiresArtwork={props.requiresArtwork} setRequiresArtwork={props.setRequiresArtwork} productInfo={props.productInfo} setProductInfo={props.setProductInfo} specifications={props.specifications} setSpecifications={props.setSpecifications} />;
+}
+
 function Categories({ categories, busy, createCategory, categoryName, setCategoryName, categorySlug, setCategorySlug }: { categories: Category[]; busy: string; createCategory: (event: React.FormEvent) => void; categoryName: string; setCategoryName: (value: string) => void; categorySlug: string; setCategorySlug: (value: string) => void }) {
   return <><PageHeader title="Categories" eyebrow="Organise products in your shop." /><section className="admin-two-col"><div className="admin-card"><h2>Add Category</h2><form onSubmit={createCategory}><Field label="Name"><input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} required /></Field><Field label="Slug" helper="Leave blank to generate from the name."><input value={categorySlug} onChange={(event) => setCategorySlug(event.target.value)} /></Field><button className="admin-button primary" type="submit" disabled={busy === 'category'}>{busy === 'category' ? 'Saving...' : '+ Add Category'}</button></form></div><div className="admin-card"><h2>Category List</h2>{categories.length ? <div className="admin-category-list">{categories.map((category) => <div key={category.id}><div><strong>{category.name}</strong><small>{category.slug}</small></div><Badge tone={category.is_active ? 'success' : 'neutral'}>{category.is_active ? 'Active' : 'Inactive'}</Badge></div>)}</div> : <EmptyState title="No categories yet." text="Create categories to organise future shop products." />}</div></section></>;
 }

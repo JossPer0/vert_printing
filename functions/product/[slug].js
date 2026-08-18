@@ -35,6 +35,44 @@ function productSupportText(product) {
   return 'Send us the quantity and timing you need.';
 }
 
+function nl2br(value = '') {
+  return escapeHtml(value).replace(/\r?\n/g, '<br />');
+}
+
+function hasText(value) {
+  return Boolean(value && String(value).trim());
+}
+
+function detailRows(product, extraSpecifications = []) {
+  const rows = [
+    ['Material', product.material],
+    ['Dimensions', product.dimensions],
+    ['Colours', product.colour_information],
+    ['Finish', product.finish],
+    ['Weight', product.weight],
+    ['Production', product.made_to_order_information],
+    ['Lead time', product.lead_time_text],
+  ];
+  for (const spec of extraSpecifications) rows.push([spec.label, spec.value]);
+  return rows.filter(([, value]) => hasText(value));
+}
+
+function renderDefinitionList(rows) {
+  if (!rows.length) return '';
+  return `<dl class="product-spec-list">${rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>`;
+}
+
+function renderProductInfoSections(product) {
+  const sections = [
+    ['Description', product.description],
+    ['Customisation', product.customisation_information],
+    ['Care instructions', product.care_instructions],
+    ["What's included", product.whats_included],
+  ].filter(([, value]) => hasText(value));
+  if (!sections.length) return '';
+  return `<div class="product-info-sections">${sections.map(([title, value]) => `<article><h2>${escapeHtml(title)}</h2><p>${nl2br(value)}</p></article>`).join('')}</div>`;
+}
+
 function pageShell({ title, description, canonical, body, structuredData = '' }) {
   return `<!doctype html>
 <html lang="en">
@@ -85,10 +123,18 @@ export async function onRequestGet({ env, params }) {
     return new Response('Not found', { status: 404 });
   }
 
-  const products = await supabaseGet(
-    env,
-    `products?select=id,name,slug,product_type,pricing_mode,base_price,requires_artwork&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&is_published=eq.true&archived_at=is.null&limit=1`,
-  );
+  let products;
+  try {
+    products = await supabaseGet(
+      env,
+      `products?select=id,name,slug,product_type,pricing_mode,base_price,requires_artwork,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&is_published=eq.true&archived_at=is.null&limit=1`,
+    );
+  } catch {
+    products = await supabaseGet(
+      env,
+      `products?select=id,name,slug,product_type,pricing_mode,base_price,requires_artwork&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&is_published=eq.true&archived_at=is.null&limit=1`,
+    );
+  }
 
   const product = products[0];
   if (!product) {
@@ -97,12 +143,22 @@ export async function onRequestGet({ env, params }) {
   }
 
   const images = await supabaseGet(env, `product_images?select=storage_path,alt_text,sort_order&product_id=eq.${product.id}&order=sort_order.asc&limit=1`);
+  let specifications = [];
+  try {
+    specifications = await supabaseGet(env, `product_specifications?select=label,value,sort_order&product_id=eq.${product.id}&order=sort_order.asc`);
+  } catch {
+    specifications = [];
+  }
   const image = images[0];
   const imageUrl = image ? `${env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${image.storage_path}` : '';
   const quoteHref = `/?product=${encodeURIComponent(product.name)}#quote`;
   const price = productPrice(product);
   const cta = productCta(product);
-  const description = `${product.name} from Vert Printing in Kloof. ${productSupportText(product)}`;
+  const summaryText = product.short_description || productSupportText(product);
+  const description = product.short_description || `${product.name} from Vert Printing in Kloof. ${productSupportText(product)}`;
+  const specs = detailRows(product, specifications);
+  const specsMarkup = renderDefinitionList(specs);
+  const infoSectionsMarkup = renderProductInfoSections(product);
   const productJson = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -128,12 +184,14 @@ export async function onRequestGet({ env, params }) {
       <div class="product-summary">
         <p class="section-kicker">Vert Product</p>
         <h1>${escapeHtml(product.name)}</h1>
-        <p>${escapeHtml(productSupportText(product))}</p>
+        <p>${escapeHtml(summaryText)}</p>
         <strong>${escapeHtml(price)}</strong>
+        ${specs.slice(0, 4).length ? `<div class="product-summary-specs">${renderDefinitionList(specs.slice(0, 4))}</div>` : ''}
         ${product.requires_artwork ? '<div class="product-info-note"><strong>Artwork</strong><span>For best print quality, vector artwork is preferred. If you are unsure, send what you have and we will check it before production.</span></div>' : ''}
         <a class="button primary" href="${quoteHref}">${escapeHtml(cta)}</a>
       </div>
     </div>
+    ${infoSectionsMarkup || specsMarkup ? `<div class="product-detail-info">${infoSectionsMarkup}${specsMarkup ? `<section class="product-spec-panel"><h2>Specifications</h2>${specsMarkup}</section>` : ''}</div>` : ''}
   </section>`;
 
   return new Response(pageShell({ title: `${product.name} | Vert Printing`, description, canonical: `https://www.vertprinting.co.za/product/${product.slug}`, body, structuredData }), {
