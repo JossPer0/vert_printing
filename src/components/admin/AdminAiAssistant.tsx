@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ModelAnalysis } from '../../lib/modelAnalysis';
 
 type ProductInfo = Record<string, string>;
 type Specification = { label: string; value: string };
@@ -28,6 +29,7 @@ type Props = {
   productInfo: ProductInfo;
   setProductInfo: (value: ProductInfo) => void;
   specifications: Specification[];
+  modelAnalysis?: ModelAnalysis | null;
   generateAiContent: (request: { product_id?: string; product: Record<string, unknown>; additional_context: string; use_primary_image: boolean }) => Promise<Suggestions>;
 };
 
@@ -73,6 +75,7 @@ export default function AdminAiAssistant(props: Props) {
         short_description: props.productInfo.short_description,
         full_description: props.productInfo.description,
         specifications: props.specifications.filter((row) => row.label.trim() && row.value.trim()),
+        model_analysis: props.modelAnalysis || null,
       };
       setSuggestions(await props.generateAiContent({ product_id: props.productId, product, additional_context: context, use_primary_image: useImage }));
     } catch (caught) {

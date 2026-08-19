@@ -1,0 +1,70 @@
+import { useState } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { analyseModelFile, type ModelAnalysis } from '../../lib/modelAnalysis';
+
+type Props = {
+  productId?: string;
+  supabase: SupabaseClient | null;
+  existing?: ModelAnalysis | null;
+  onSaved: (analysis: ModelAnalysis) => void;
+};
+
+function display(value: number | null | undefined) {
+  return value === null || value === undefined ? 'Not available' : String(value);
+}
+
+export default function ProductModelAnalysis({ productId, supabase, existing, onSaved }: Props) {
+  const [file, setFile] = useState<File | null>(null);
+  const [stlUnit, setStlUnit] = useState('mm');
+  const [analysis, setAnalysis] = useState<ModelAnalysis | null>(existing || null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function analyseAndSave() {
+    if (!file || !productId || !supabase) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await analyseModelFile(file, stlUnit);
+      const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
+      const storagePath = `products/${productId}/models/${Date.now()}-${safeName}`;
+      const upload = await supabase.storage.from('product-models').upload(storagePath, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+      if (upload.error) throw new Error('The model file could not be uploaded.');
+      const { error: saveError } = await supabase.from('product_model_files').upsert({
+        product_id: productId,
+        storage_path: storagePath,
+        original_filename: result.filename,
+        format: result.format,
+        file_size_bytes: result.file_size_bytes,
+        unit: result.unit,
+        width: result.width,
+        depth: result.depth,
+        height: result.height,
+        volume: result.volume,
+        surface_area: result.surface_area,
+        triangle_count: result.triangle_count,
+        object_count: result.object_count,
+        watertight: result.watertight,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'product_id' });
+      if (saveError) throw new Error('The model analysis could not be saved.');
+      setAnalysis(result);
+      onSaved(result);
+      setFile(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The model could not be analysed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <section className="admin-card admin-card-wide admin-model-card">
+    <div className="admin-model-heading"><div><h2>3D Model Analysis</h2><p className="admin-muted">Upload an STL or 3MF file to extract verified geometry for product information and the AI assistant. The model file remains private.</p></div><span className="admin-ai-badge">Admin only</span></div>
+    {!productId ? <p className="admin-notice info">Save the product first, then add a model file here.</p> : <>
+      <div className="admin-model-upload-row"><label className="admin-field"><span>Model file</span><input type="file" accept=".stl,.3mf,model/stl,model/3mf" onChange={(event) => setFile(event.target.files?.[0] || null)} /><small>Maximum 50 MB. 3MF files can include units and object metadata; STL units must be selected.</small></label>{file?.name.toLowerCase().endsWith('.stl') && <label className="admin-field"><span>STL units</span><select value={stlUnit} onChange={(event) => setStlUnit(event.target.value)}><option value="mm">Millimetres</option><option value="cm">Centimetres</option><option value="in">Inches</option></select></label>}</div>
+      <button className="admin-button secondary admin-model-analyse" type="button" disabled={!file || busy} onClick={analyseAndSave}>{busy ? 'Analysing and saving...' : 'Analyse 3D Model'}</button>
+      {error && <p className="admin-notice error">{error}</p>}
+      {analysis && <div className="admin-model-results"><div><strong>{analysis.filename}</strong><span>{analysis.format.toUpperCase()} · {analysis.unit}</span></div><dl className="admin-model-stats"><div><dt>Dimensions</dt><dd>{display(analysis.width)} × {display(analysis.depth)} × {display(analysis.height)} {analysis.unit}</dd></div><div><dt>Volume</dt><dd>{display(analysis.volume)} {analysis.volume === null ? '' : `${analysis.unit}³`}</dd></div><div><dt>Surface area</dt><dd>{display(analysis.surface_area)} {analysis.surface_area === null ? '' : `${analysis.unit}²`}</dd></div><div><dt>Triangles</dt><dd>{analysis.triangle_count.toLocaleString()}</dd></div><div><dt>Objects</dt><dd>{analysis.object_count}</dd></div><div><dt>Mesh status</dt><dd>{analysis.watertight === null ? 'Not checked' : analysis.watertight ? 'Appears watertight' : 'Needs review'}</dd></div></dl><p className="admin-muted">These measurements are supplied to the AI as technical facts. Material, colour, finish, print time and price still need to be entered separately.</p></div>}
+    </>}
+  </section>;
+}
