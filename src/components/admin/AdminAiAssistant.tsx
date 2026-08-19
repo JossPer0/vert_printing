@@ -47,6 +47,7 @@ export default function AdminAiAssistant(props: Props) {
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [pendingApply, setPendingApply] = useState<{ key: keyof Suggestions; label: string; value: string } | null>(null);
 
   async function generate() {
     setBusy(true);
@@ -77,12 +78,21 @@ export default function AdminAiAssistant(props: Props) {
     }
   }
 
-  function apply(key: keyof Suggestions) {
+  function applyValue(key: keyof Suggestions, value: string) {
+    const productKey = key === 'full_description' ? 'description' : key;
+    props.setProductInfo({ ...props.productInfo, [productKey]: value });
+  }
+
+  function apply(key: keyof Suggestions, label: string) {
     const value = suggestions?.[key];
     if (typeof value !== 'string' || !value.trim()) return;
-    const current = props.productInfo[key as string] || '';
-    if (current.trim() && !window.confirm(`Replace the existing ${String(key).replaceAll('_', ' ')}?`)) return;
-    props.setProductInfo({ ...props.productInfo, [key as string]: value });
+    const productKey = key === 'full_description' ? 'description' : key;
+    const current = props.productInfo[productKey] || '';
+    if (current.trim()) {
+      setPendingApply({ key, label, value });
+      return;
+    }
+    applyValue(key, value);
   }
 
   function applyAll() {
@@ -92,8 +102,9 @@ export default function AdminAiAssistant(props: Props) {
     for (const [key] of labels) {
       const value = suggestions[key];
       if (typeof value !== 'string' || !value.trim()) continue;
-      if (next[key as string]?.trim()) { skipped += 1; continue; }
-      next[key as string] = value;
+      const productKey = key === 'full_description' ? 'description' : key;
+      if (next[productKey as keyof typeof next]?.trim()) { skipped += 1; continue; }
+      next[productKey as keyof typeof next] = value;
     }
     props.setProductInfo(next);
     if (skipped) setError(`${skipped} existing field${skipped === 1 ? '' : 's'} kept unchanged.`);
@@ -105,8 +116,9 @@ export default function AdminAiAssistant(props: Props) {
     <label className="admin-ai-checkbox"><input type="checkbox" checked={useImage} disabled={!props.primaryImageUrl} onChange={(event) => setUseImage(event.target.checked)} /><span>Use the primary product image{!props.primaryImageUrl && ' (add one from the Products list first)'}</span></label>
     <button className="admin-button primary" type="button" disabled={busy || !props.productName.trim()} onClick={generate}>{busy ? 'Generating...' : 'Generate Product Content'}</button>
     {error && <p className="admin-notice error">{error}</p>}
-    {suggestions && <div className="admin-ai-results"><h3>AI Suggestions</h3>{labels.map(([key, label]) => typeof suggestions[key] === 'string' && suggestions[key] && <article key={String(key)}><div><strong>{label}</strong><p>{suggestions[key] as string}</p></div><button className="admin-button secondary" type="button" onClick={() => apply(key)}>Apply</button></article>)}{suggestions.features.length > 0 && <div className="admin-ai-list"><strong>Suggested features</strong><ul>{suggestions.features.map((feature) => <li key={feature}>{feature}</li>)}</ul></div>}{suggestions.missing_information.length > 0 && <div className="admin-ai-list"><strong>Could be improved with</strong><ul>{suggestions.missing_information.map((item) => <li key={item}>{item}</li>)}</ul></div>}{suggestions.warnings.length > 0 && <div className="admin-ai-list warning"><strong>Review carefully</strong><ul>{suggestions.warnings.map((item) => <li key={item}>{item}</li>)}</ul></div>}{suggestions.alt_text && <div className="admin-ai-list"><strong>Suggested image alt text</strong><p>{suggestions.alt_text}</p><small>Copy this into the image alt text when updating the product image.</small></div>}<div className="admin-ai-actions"><button className="admin-button primary" type="button" onClick={applyAll}>Apply All to Empty Fields</button><button className="admin-button secondary" type="button" onClick={generate}>Regenerate</button><button className="admin-button secondary" type="button" onClick={() => setSuggestions(null)}>Dismiss</button></div></div>}
-  </section>;
+    {suggestions && <div className="admin-ai-results"><h3>AI Suggestions</h3>{labels.map(([key, label]) => typeof suggestions[key] === 'string' && suggestions[key] && <article key={String(key)}><div><strong>{label}</strong><p>{suggestions[key] as string}</p></div><button className="admin-button secondary" type="button" onClick={() => apply(key, label)}>Apply</button></article>)}{suggestions.features.length > 0 && <div className="admin-ai-list"><strong>Suggested features</strong><ul>{suggestions.features.map((feature) => <li key={feature}>{feature}</li>)}</ul></div>}{suggestions.missing_information.length > 0 && <div className="admin-ai-list"><strong>Could be improved with</strong><ul>{suggestions.missing_information.map((item) => <li key={item}>{item}</li>)}</ul></div>}{suggestions.warnings.length > 0 && <div className="admin-ai-list warning"><strong>Review carefully</strong><ul>{suggestions.warnings.map((item) => <li key={item}>{item}</li>)}</ul></div>}{suggestions.alt_text && <div className="admin-ai-list"><strong>Suggested image alt text</strong><p>{suggestions.alt_text}</p><small>Copy this into the image alt text when updating the product image.</small></div>}<div className="admin-ai-actions"><button className="admin-button primary" type="button" onClick={applyAll}>Apply All to Empty Fields</button><button className="admin-button secondary" type="button" onClick={generate}>Regenerate</button><button className="admin-button secondary" type="button" onClick={() => setSuggestions(null)}>Dismiss</button></div></div>}
+
+    {pendingApply && <div className="admin-modal-backdrop" role="presentation"><div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="ai-replace-title"><h2 id="ai-replace-title">Replace existing field?</h2><p>The {pendingApply.label.toLowerCase()} field already has content. Replace it with this draft?</p><div className="admin-modal-actions"><button className="admin-button secondary" type="button" onClick={() => setPendingApply(null)}>Keep Existing</button><button className="admin-button primary" type="button" onClick={() => { applyValue(pendingApply.key, pendingApply.value); setPendingApply(null); }}>Replace Field</button></div></div></div>}  </section>;
 }
 
 function Field({ label, helper, children }: { label: string; helper?: string; children: React.ReactNode }) {
