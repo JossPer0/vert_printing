@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import AdminAiAssistant from './AdminAiAssistant';
 
 type Category = {
   id: string;
@@ -40,6 +41,8 @@ type Product = {
   is_active: boolean;
   requires_artwork: boolean;
   minimum_quantity: number;
+  seo_title: string | null;
+  seo_description: string | null;
 };
 
 type ProductCategory = {
@@ -68,6 +71,8 @@ type ProductInfoState = {
   care_instructions: string;
   whats_included: string;
   made_to_order_information: string;
+  seo_title: string;
+  seo_description: string;
 };
 
 const emptyProductInfo = (): ProductInfoState => ({
@@ -83,6 +88,8 @@ const emptyProductInfo = (): ProductInfoState => ({
   care_instructions: '',
   whats_included: '',
   made_to_order_information: '',
+  seo_title: '',
+  seo_description: '',
 });
 
 const infoFromProduct = (product?: Product): ProductInfoState => ({
@@ -98,6 +105,8 @@ const infoFromProduct = (product?: Product): ProductInfoState => ({
   care_instructions: product?.care_instructions || '',
   whats_included: product?.whats_included || '',
   made_to_order_information: product?.made_to_order_information || '',
+  seo_title: product?.seo_title || '',
+  seo_description: product?.seo_description || '',
 });
 
 const cleanText = (value: string) => value.trim() || null;
@@ -115,7 +124,33 @@ const productInfoPayload = (info: ProductInfoState) => ({
   care_instructions: cleanText(info.care_instructions),
   whats_included: cleanText(info.whats_included),
   made_to_order_information: cleanText(info.made_to_order_information),
+  seo_title: cleanText(info.seo_title),
+  seo_description: cleanText(info.seo_description),
 });
+
+type AiSuggestions = {
+  short_description: string | null;
+  full_description: string | null;
+  features: string[];
+  customisation_information: string | null;
+  care_instructions: string | null;
+  whats_included: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  alt_text: string | null;
+  suggested_tags: string[];
+  suggested_category: string | null;
+  missing_information: string[];
+  warnings: string[];
+};
+
+type AiRequest = {
+  product_id?: string;
+  product: Record<string, unknown>;
+  additional_context: string;
+  use_primary_image: boolean;
+  primary_image_url?: string;
+};
 
 type Notice = { type: 'info' | 'success' | 'error'; text: string } | null;
 
@@ -192,6 +227,7 @@ export default function AdminApp() {
   const [specifications, setSpecifications] = useState<ProductSpecification[]>([{ label: '', value: '', sort_order: 0 }]);
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [busy, setBusy] = useState('');
+  const [aiEnabled, setAiEnabled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
 
@@ -206,6 +242,11 @@ export default function AdminApp() {
   })();
 
   const sortedCategories = useMemo(() => [...categories].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)), [categories]);
+  const selectedEditProductId = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('edit') || '';
+  const selectedEditImage = productImages[selectedEditProductId];
+  const selectedEditImageUrl = selectedEditImage && supabase
+    ? supabase.storage.from('product-images').getPublicUrl(selectedEditImage.storage_path).data.publicUrl
+    : '';
   const publishedCount = products.filter((product) => product.is_published).length;
   const draftCount = products.length - publishedCount;
 
@@ -230,7 +271,7 @@ export default function AdminApp() {
     setBusy('loading');
     let [categoryResult, productResult, imageResult, productCategoryResult, specificationResult] = await Promise.all([
       client.from('categories').select('id,name,slug,is_active,sort_order').order('sort_order').order('name'),
-      client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
+      client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information,seo_title,seo_description,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
       client.from('product_images').select('id,product_id,storage_path,alt_text,sort_order').order('sort_order'),
       client.from('product_categories').select('product_id,category_id'),
       client.from('product_specifications').select('id,product_id,label,value,sort_order').order('sort_order'),
@@ -289,6 +330,7 @@ export default function AdminApp() {
         const response = await fetch('/api/config', { cache: 'no-store' });
         if (!response.ok) throw new Error('Unable to load shop configuration.');
         const config = await response.json();
+        setAiEnabled(config.aiProductContentEnabled === true);
         if (!config.supabaseUrl || !config.supabaseAnonKey) {
           setSessionReady(true);
           return;
@@ -450,6 +492,21 @@ export default function AdminApp() {
     setSpecifications(rows.length ? rows.map((row, index) => ({ ...row, sort_order: index })) : [{ label: '', value: '', sort_order: 0 }]);
   }
 
+  async function generateAiContent(request: AiRequest): Promise<AiSuggestions> {
+    if (!supabase) throw new Error('Shop Manager is not configured.');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error('Your session has expired. Please sign in again.');
+    const response = await fetch('/api/admin/ai/product-content', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: Bearer  },
+      body: JSON.stringify(request),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || 'We could not generate product content right now.');
+    return payload.suggestions as AiSuggestions;
+  }
+
   async function updateProductCategory(product: Product, categoryId: string) {
     if (!supabase) return;
     setBusy(`categories-${product.id}`);
@@ -540,8 +597,8 @@ export default function AdminApp() {
         {notice && <p className={`admin-notice ${notice.type}`}>{notice.text}</p>}
         {view === 'dashboard' && <Dashboard products={products} categories={categories} publishedCount={publishedCount} draftCount={draftCount} busy={busy} navigate={navigate} />}
         {view === 'products' && <Products products={products} productImages={productImages} productCategories={productCategories} categories={sortedCategories} supabase={supabase} busy={busy} navigate={navigate} togglePublish={togglePublish} uploadProductImage={uploadProductImage} setPreviewImage={setPreviewImage} updateProductCategory={updateProductCategory} />}
-        {view === 'new-product' && <ProductEditor mode="new" busy={busy} onSubmit={createProduct} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} categories={sortedCategories} selectedCategoryId={selectedCategoryId} setSelectedCategoryId={setSelectedCategoryId} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} />}
-        {view === 'edit-product' && <EditProduct products={products} productSpecifications={productSpecifications} busy={busy} updateProduct={updateProduct} loadProductForm={loadProductForm} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} />}
+        {view === 'new-product' && <ProductEditor mode="new" busy={busy} onSubmit={createProduct} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} categories={sortedCategories} selectedCategoryId={selectedCategoryId} setSelectedCategoryId={setSelectedCategoryId} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} />}
+        {view === 'edit-product' && <EditProduct products={products} productSpecifications={productSpecifications} busy={busy} updateProduct={updateProduct} loadProductForm={loadProductForm} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} productId={selectedEditProductId} primaryImageUrl={selectedEditImageUrl} />}
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} />}
       </main>
     </div>
@@ -592,12 +649,12 @@ function SpecificationEditor({ specifications, setSpecifications }: { specificat
   return <div className="admin-card admin-card-wide"><h2>Additional Specifications</h2><p className="admin-muted">Add extra informational rows such as layer height, maximum print area or included fittings. Leave blank rows empty.</p><div className="admin-spec-list">{specifications.map((row, index) => <div className="admin-spec-row" key={index}><Field label="Label"><input value={row.label} onChange={(event) => update(index, 'label', event.target.value)} placeholder="Material" /></Field><Field label="Value"><input value={row.value} onChange={(event) => update(index, 'value', event.target.value)} placeholder="PETG" /></Field><button className="admin-button secondary" type="button" onClick={() => remove(index)}>Remove</button></div>)}</div><button className="admin-button secondary" type="button" onClick={() => setSpecifications([...specifications, { label: '', value: '', sort_order: specifications.length }])}>+ Add specification</button></div>;
 }
 
-function ProductEditor(props: { mode: 'new' | 'edit'; busy: string; onSubmit: (event: React.FormEvent, publish?: boolean) => void; productName: string; setProductName: (value: string) => void; productType: string; setProductType: (value: string) => void; pricingMode: string; setPricingMode: (value: string) => void; basePrice: string; setBasePrice: (value: string) => void; requiresArtwork: boolean; setRequiresArtwork: (value: boolean) => void; categories?: Category[]; selectedCategoryId?: string; setSelectedCategoryId?: (value: string) => void; productInfo: ProductInfoState; setProductInfo: (value: ProductInfoState) => void; specifications: ProductSpecification[]; setSpecifications: (value: ProductSpecification[]) => void }) {
+function ProductEditor(props: { mode: 'new' | 'edit'; busy: string; onSubmit: (event: React.FormEvent, publish?: boolean) => void; productName: string; setProductName: (value: string) => void; productType: string; setProductType: (value: string) => void; pricingMode: string; setPricingMode: (value: string) => void; basePrice: string; setBasePrice: (value: string) => void; requiresArtwork: boolean; setRequiresArtwork: (value: boolean) => void; categories?: Category[]; selectedCategoryId?: string; setSelectedCategoryId?: (value: string) => void; productInfo: ProductInfoState; setProductInfo: (value: ProductInfoState) => void; specifications: ProductSpecification[]; setSpecifications: (value: ProductSpecification[]) => void; aiEnabled: boolean; generateAiContent: (request: AiRequest) => Promise<AiSuggestions>; productId?: string; primaryImageUrl?: string }) {
   const isEdit = props.mode === 'edit';
-  return <form onSubmit={(event) => props.onSubmit(event, false)}><PageHeader title={isEdit ? 'Edit Product' : 'Add Product'} eyebrow={isEdit ? 'Update product details shown to customers.' : 'Create a new product for the Vert shop.'} actions={<><a className="admin-button secondary" href="/admin/products">Cancel</a>{!isEdit && <button className="admin-button secondary" type="submit" disabled={props.busy === 'product'}>Save Draft</button>}<button className="admin-button primary" type={isEdit ? 'submit' : 'button'} disabled={props.busy === 'publish-new' || props.busy.startsWith('product-')} onClick={!isEdit ? (event) => props.onSubmit(event as unknown as React.FormEvent, true) : undefined}>{isEdit ? 'Save Changes' : 'Publish'}</button></>} /><section className="admin-form-grid"><div className="admin-card"><h2>Basic Information</h2><Field label="Product name"><input value={props.productName} onChange={(event) => props.setProductName(event.target.value)} required /></Field><Field label="Product type" helper="Use Quote Only when the product cannot be priced upfront."><select value={props.productType} onChange={(event) => props.setProductType(event.target.value)}><option value="standard">Standard</option><option value="configurable">Configurable</option><option value="quote_only">Quote Only</option></select></Field></div><div className="admin-card"><h2>Pricing</h2><Field label="Pricing mode"><select value={props.pricingMode} onChange={(event) => props.setPricingMode(event.target.value)}><option value="fixed">Fixed Price</option><option value="from_price">From Price</option><option value="quote_only">Quote Only</option></select></Field><Field label="Base price" helper="Displayed in South African Rand."><input value={props.basePrice} onChange={(event) => props.setBasePrice(event.target.value)} type="number" min="0" step="0.01" disabled={props.pricingMode === 'quote_only'} /></Field></div>{!isEdit && <div className="admin-card"><h2>Category</h2><Field label="Product category" helper="Optional. Create categories first if this list is empty."><select value={props.selectedCategoryId || ''} onChange={(event) => props.setSelectedCategoryId?.(event.target.value)} disabled={!props.categories?.length}><option value="">No category</option>{props.categories?.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field></div>}<div className="admin-card"><h2>Artwork</h2><label className="admin-toggle"><input type="checkbox" checked={props.requiresArtwork} onChange={(event) => props.setRequiresArtwork(event.target.checked)} /><span>Requires artwork</span></label><p className="admin-muted">Customers will be prompted to provide artwork details for this product.</p></div>{!isEdit && <div className="admin-card"><h2>Images</h2><div className="admin-dropzone"><strong>Add images after saving</strong><p>Save this product first, then upload images from the Products list.</p></div></div>}<ProductInformationFields productInfo={props.productInfo} setProductInfo={props.setProductInfo} /><SpecificationEditor specifications={props.specifications} setSpecifications={props.setSpecifications} /></section></form>;
+  return <form onSubmit={(event) => props.onSubmit(event, false)}><PageHeader title={isEdit ? 'Edit Product' : 'Add Product'} eyebrow={isEdit ? 'Update product details shown to customers.' : 'Create a new product for the Vert shop.'} actions={<><a className="admin-button secondary" href="/admin/products">Cancel</a>{!isEdit && <button className="admin-button secondary" type="submit" disabled={props.busy === 'product'}>Save Draft</button>}<button className="admin-button primary" type={isEdit ? 'submit' : 'button'} disabled={props.busy === 'publish-new' || props.busy.startsWith('product-')} onClick={!isEdit ? (event) => props.onSubmit(event as unknown as React.FormEvent, true) : undefined}>{isEdit ? 'Save Changes' : 'Publish'}</button></>} /><section className="admin-form-grid"><div className="admin-card"><h2>Basic Information</h2><Field label="Product name"><input value={props.productName} onChange={(event) => props.setProductName(event.target.value)} required /></Field><Field label="Product type" helper="Use Quote Only when the product cannot be priced upfront."><select value={props.productType} onChange={(event) => props.setProductType(event.target.value)}><option value="standard">Standard</option><option value="configurable">Configurable</option><option value="quote_only">Quote Only</option></select></Field></div><div className="admin-card"><h2>Pricing</h2><Field label="Pricing mode"><select value={props.pricingMode} onChange={(event) => props.setPricingMode(event.target.value)}><option value="fixed">Fixed Price</option><option value="from_price">From Price</option><option value="quote_only">Quote Only</option></select></Field><Field label="Base price" helper="Displayed in South African Rand."><input value={props.basePrice} onChange={(event) => props.setBasePrice(event.target.value)} type="number" min="0" step="0.01" disabled={props.pricingMode === 'quote_only'} /></Field></div>{!isEdit && <div className="admin-card"><h2>Category</h2><Field label="Product category" helper="Optional. Create categories first if this list is empty."><select value={props.selectedCategoryId || ''} onChange={(event) => props.setSelectedCategoryId?.(event.target.value)} disabled={!props.categories?.length}><option value="">No category</option>{props.categories?.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field></div>}<div className="admin-card"><h2>Artwork</h2><label className="admin-toggle"><input type="checkbox" checked={props.requiresArtwork} onChange={(event) => props.setRequiresArtwork(event.target.checked)} /><span>Requires artwork</span></label><p className="admin-muted">Customers will be prompted to provide artwork details for this product.</p></div>{!isEdit && <div className="admin-card"><h2>Images</h2><div className="admin-dropzone"><strong>Add images after saving</strong><p>Save this product first, then upload images from the Products list.</p></div></div>}<ProductInformationFields productInfo={props.productInfo} setProductInfo={props.setProductInfo} />{props.aiEnabled && <AdminAiAssistant productId={props.productId} primaryImageUrl={props.primaryImageUrl} productName={props.productName} productType={props.productType} pricingMode={props.pricingMode} basePrice={props.basePrice} productInfo={props.productInfo} setProductInfo={props.setProductInfo} specifications={props.specifications} generateAiContent={props.generateAiContent} />}<SpecificationEditor specifications={props.specifications} setSpecifications={props.setSpecifications} /></section></form>;
 }
 
-function EditProduct(props: { products: Product[]; productSpecifications: Record<string, ProductSpecification[]>; busy: string; updateProduct: (event: React.FormEvent, product: Product) => void; loadProductForm: (product: Product, rows: ProductSpecification[]) => void; productName: string; setProductName: (value: string) => void; productType: string; setProductType: (value: string) => void; pricingMode: string; setPricingMode: (value: string) => void; basePrice: string; setBasePrice: (value: string) => void; requiresArtwork: boolean; setRequiresArtwork: (value: boolean) => void; productInfo: ProductInfoState; setProductInfo: (value: ProductInfoState) => void; specifications: ProductSpecification[]; setSpecifications: (value: ProductSpecification[]) => void }) {
+function EditProduct(props: { products: Product[]; productSpecifications: Record<string, ProductSpecification[]>; busy: string; updateProduct: (event: React.FormEvent, product: Product) => void; loadProductForm: (product: Product, rows: ProductSpecification[]) => void; productName: string; setProductName: (value: string) => void; productType: string; setProductType: (value: string) => void; pricingMode: string; setPricingMode: (value: string) => void; basePrice: string; setBasePrice: (value: string) => void; requiresArtwork: boolean; setRequiresArtwork: (value: boolean) => void; productInfo: ProductInfoState; setProductInfo: (value: ProductInfoState) => void; specifications: ProductSpecification[]; setSpecifications: (value: ProductSpecification[]) => void; aiEnabled: boolean; generateAiContent: (request: AiRequest) => Promise<AiSuggestions>; productId?: string; primaryImageUrl?: string }) {
   const productId = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('edit') || '';
   const product = props.products.find((item) => item.id === productId);
   const [loadedId, setLoadedId] = useState('');
@@ -609,7 +666,7 @@ function EditProduct(props: { products: Product[]; productSpecifications: Record
   }, [product, loadedId, props]);
   if (props.busy === 'loading') return <section className="admin-card"><p className="admin-muted">Loading product...</p></section>;
   if (!product) return <EmptyState title="Product not found." text="This product could not be loaded. Return to the product list and try again." action={<a className="admin-button secondary" href="/admin/products">Back to Products</a>} />;
-  return <ProductEditor mode="edit" busy={props.busy} onSubmit={(event) => props.updateProduct(event, product)} productName={props.productName} setProductName={props.setProductName} productType={props.productType} setProductType={props.setProductType} pricingMode={props.pricingMode} setPricingMode={props.setPricingMode} basePrice={props.basePrice} setBasePrice={props.setBasePrice} requiresArtwork={props.requiresArtwork} setRequiresArtwork={props.setRequiresArtwork} productInfo={props.productInfo} setProductInfo={props.setProductInfo} specifications={props.specifications} setSpecifications={props.setSpecifications} />;
+  return <ProductEditor mode="edit" busy={props.busy} onSubmit={(event) => props.updateProduct(event, product)} productName={props.productName} setProductName={props.setProductName} productType={props.productType} setProductType={props.setProductType} pricingMode={props.pricingMode} setPricingMode={props.setPricingMode} basePrice={props.basePrice} setBasePrice={props.setBasePrice} requiresArtwork={props.requiresArtwork} setRequiresArtwork={props.setRequiresArtwork} productInfo={props.productInfo} setProductInfo={props.setProductInfo} specifications={props.specifications} setSpecifications={props.setSpecifications} aiEnabled={props.aiEnabled} generateAiContent={props.generateAiContent} productId={props.productId} primaryImageUrl={props.primaryImageUrl} />;
 }
 
 function Categories({ categories, busy, createCategory, categoryName, setCategoryName, categorySlug, setCategorySlug }: { categories: Category[]; busy: string; createCategory: (event: React.FormEvent) => void; categoryName: string; setCategoryName: (value: string) => void; categorySlug: string; setCategorySlug: (value: string) => void }) {

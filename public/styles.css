@@ -994,6 +994,116 @@ h3 {
   grid-column: 1 / -1;
 }
 
+.admin-ai-card {
+  border-left: 4px solid var(--admin-pink);
+}
+
+.admin-ai-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-ai-heading h2 {
+  margin-bottom: 8px;
+}
+
+.admin-ai-badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(236, 22, 140, 0.25);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--admin-pink);
+  background: #fff4fa;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-ai-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 2px 0 16px;
+  color: var(--admin-text);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.admin-ai-checkbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--admin-pink);
+}
+
+.admin-ai-results {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+  border-top: 1px solid var(--admin-border);
+  padding-top: 18px;
+}
+
+.admin-ai-results h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.admin-ai-results article {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fff;
+}
+
+.admin-ai-results article strong,
+.admin-ai-list strong {
+  display: block;
+  color: var(--admin-text);
+  font-size: 0.86rem;
+}
+
+.admin-ai-results article p,
+.admin-ai-list p {
+  margin: 6px 0 0;
+  color: var(--admin-muted);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.admin-ai-list {
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #f5f6f4;
+}
+
+.admin-ai-list.warning {
+  background: #fff6e6;
+}
+
+.admin-ai-list ul {
+  margin: 7px 0 0 18px;
+  padding: 0;
+  color: var(--admin-muted);
+}
+
+.admin-ai-list small {
+  display: block;
+  margin-top: 6px;
+  color: var(--admin-muted);
+}
+
+.admin-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 .admin-spec-list {
   display: grid;
   gap: 12px;
