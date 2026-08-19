@@ -499,7 +499,7 @@ export default function AdminApp() {
     if (!token) throw new Error('Your session has expired. Please sign in again.');
     const response = await fetch('/api/admin/ai/product-content', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: Bearer  },
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
       body: JSON.stringify(request),
     });
     const payload = await response.json().catch(() => ({}));
