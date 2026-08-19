@@ -127,7 +127,7 @@ export async function onRequestGet({ env, params }) {
   try {
     products = await supabaseGet(
       env,
-      `products?select=id,name,slug,product_type,pricing_mode,base_price,requires_artwork,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&is_published=eq.true&archived_at=is.null&limit=1`,
+      `products?select=id,name,slug,product_type,pricing_mode,base_price,requires_artwork,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information,seo_title,seo_description&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&is_published=eq.true&archived_at=is.null&limit=1`,
     );
   } catch {
     products = await supabaseGet(
@@ -155,7 +155,7 @@ export async function onRequestGet({ env, params }) {
   const price = productPrice(product);
   const cta = productCta(product);
   const summaryText = product.short_description || productSupportText(product);
-  const description = product.short_description || `${product.name} from Vert Printing in Kloof. ${productSupportText(product)}`;
+  const description = product.seo_description || product.short_description || `${product.name} from Vert Printing in Kloof. ${productSupportText(product)}`;
   const specs = detailRows(product, specifications);
   const specsMarkup = renderDefinitionList(specs);
   const infoSectionsMarkup = renderProductInfoSections(product);
@@ -194,7 +194,7 @@ export async function onRequestGet({ env, params }) {
     ${infoSectionsMarkup || specsMarkup ? `<div class="product-detail-info">${infoSectionsMarkup}${specsMarkup ? `<section class="product-spec-panel"><h2>Specifications</h2>${specsMarkup}</section>` : ''}</div>` : ''}
   </section>`;
 
-  return new Response(pageShell({ title: `${product.name} | Vert Printing`, description, canonical: `https://www.vertprinting.co.za/product/${product.slug}`, body, structuredData }), {
+  return new Response(pageShell({ title: product.seo_title || `${product.name} | Vert Printing`, description, canonical: `https://www.vertprinting.co.za/product/${product.slug}`, body, structuredData }), {
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'public, max-age=60',
