@@ -2308,3 +2308,16 @@ h3 {
     width: 100%;
   }
 }
+.admin-ai-card .admin-button {
+  transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.admin-ai-card .admin-button:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.admin-ai-card .admin-button.is-applied {
+  border-color: var(--teal);
+  background: #e7f4f1;
+  color: var(--teal-dark);
+}
