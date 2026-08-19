@@ -598,7 +598,7 @@ function ProductEditor(props: { mode: 'new' | 'edit'; busy: string; onSubmit: (e
 }
 
 function EditProduct(props: { products: Product[]; productSpecifications: Record<string, ProductSpecification[]>; busy: string; updateProduct: (event: React.FormEvent, product: Product) => void; loadProductForm: (product: Product, rows: ProductSpecification[]) => void; productName: string; setProductName: (value: string) => void; productType: string; setProductType: (value: string) => void; pricingMode: string; setPricingMode: (value: string) => void; basePrice: string; setBasePrice: (value: string) => void; requiresArtwork: boolean; setRequiresArtwork: (value: boolean) => void; productInfo: ProductInfoState; setProductInfo: (value: ProductInfoState) => void; specifications: ProductSpecification[]; setSpecifications: (value: ProductSpecification[]) => void }) {
-  const productId = typeof window === 'undefined' ? '' : window.location.pathname.split('/').filter(Boolean).pop() || '';
+  const productId = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('edit') || '';
   const product = props.products.find((item) => item.id === productId);
   const [loadedId, setLoadedId] = useState('');
   useEffect(() => {
