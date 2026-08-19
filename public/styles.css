@@ -2321,3 +2321,6 @@ h3 {
   background: #e7f4f1;
   color: var(--teal-dark);
 }
+.admin-ai-generate {
+  min-width: 220px;
+}
