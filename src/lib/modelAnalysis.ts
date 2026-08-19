@@ -106,24 +106,32 @@ function parseStl(file: File, bytes: Uint8Array, unit: string) {
 
 function parse3mf(file: File, bytes: Uint8Array): ModelAnalysis {
   const files = unzipSync(bytes);
-  const modelEntry = Object.entries(files).find(([name]) => name.toLowerCase().endsWith('.model'));
-  if (!modelEntry) throw new Error('The 3MF package does not contain a model file.');
-  const xml = new DOMParser().parseFromString(strFromU8(modelEntry[1]), 'application/xml');
-  if (xml.querySelector('parsererror')) throw new Error('The 3MF model data could not be read.');
+  const modelEntries = Object.entries(files).filter(([name]) => name.toLowerCase().endsWith('.model'));
+  if (!modelEntries.length) throw new Error('The 3MF package does not contain a model file.');
   const triangles: Triangle[] = [];
-  const objects = Array.from(xml.getElementsByTagNameNS('*', 'object'));
-  for (const object of objects) {
-    const mesh = object.getElementsByTagNameNS('*', 'mesh')[0];
-    if (!mesh) continue;
-    const vertices = Array.from(mesh.getElementsByTagNameNS('*', 'vertex')).map((vertex) => [Number(vertex.getAttribute('x')), Number(vertex.getAttribute('y')), Number(vertex.getAttribute('z'))] as Point);
-    for (const triangle of Array.from(mesh.getElementsByTagNameNS('*', 'triangle'))) {
-      const points = [Number(triangle.getAttribute('v1')), Number(triangle.getAttribute('v2')), Number(triangle.getAttribute('v3'))].map((index) => vertices[index]);
-      if (points.every(Boolean)) triangles.push([points[0], points[1], points[2]]);
+  let objectCount = 0;
+  let unit = 'mm';
+  for (const [, modelBytes] of modelEntries) {
+    const xml = new DOMParser().parseFromString(strFromU8(modelBytes), 'application/xml');
+    if (xml.querySelector('parsererror')) continue;
+    unit = normaliseUnit(xml.documentElement.getAttribute('unit'));
+    for (const object of Array.from(xml.getElementsByTagNameNS('*', 'object'))) {
+      const mesh = object.getElementsByTagNameNS('*', 'mesh')[0];
+      if (!mesh) continue;
+      const vertices = Array.from(mesh.getElementsByTagNameNS('*', 'vertex')).map((vertex) => [Number(vertex.getAttribute('x')), Number(vertex.getAttribute('y')), Number(vertex.getAttribute('z'))] as Point);
+      let objectTriangles = 0;
+      for (const triangle of Array.from(mesh.getElementsByTagNameNS('*', 'triangle'))) {
+        const points = [Number(triangle.getAttribute('v1')), Number(triangle.getAttribute('v2')), Number(triangle.getAttribute('v3'))].map((index) => vertices[index]);
+        if (points.every(Boolean)) {
+          triangles.push([points[0], points[1], points[2]]);
+          objectTriangles += 1;
+        }
+      }
+      if (objectTriangles) objectCount += 1;
     }
   }
-  return analyseTriangles(triangles, { format: '3mf', filename: file.name, file_size_bytes: file.size, unit: normaliseUnit(xml.documentElement.getAttribute('unit')), object_count: objects.length });
+  return analyseTriangles(triangles, { format: '3mf', filename: file.name, file_size_bytes: file.size, unit, object_count: objectCount });
 }
-
 export async function analyseModelFile(file: File, stlUnit = 'mm'): Promise<ModelAnalysis> {
   const extension = file.name.toLowerCase().split('.').pop();
   if (extension !== 'stl' && extension !== '3mf') throw new Error('Please choose an STL or 3MF file.');
