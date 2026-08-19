@@ -2,10 +2,19 @@ import { useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { analyseModelFile, type ModelAnalysis } from '../../lib/modelAnalysis';
 
+type ProductInfo = {
+  material: string;
+  dimensions: string;
+  finish: string;
+  lead_time_text: string;
+};
+
 type Props = {
   productId?: string;
   supabase: SupabaseClient | null;
   existing?: ModelAnalysis | null;
+  productInfo: ProductInfo;
+  setProductInfo: (value: ProductInfo) => void;
   onSaved: (analysis: ModelAnalysis) => void;
 };
 
@@ -13,7 +22,11 @@ function display(value: number | null | undefined) {
   return value === null || value === undefined ? 'Not available' : String(value);
 }
 
-export default function ProductModelAnalysis({ productId, supabase, existing, onSaved }: Props) {
+function dimensionsFrom(analysis: ModelAnalysis) {
+  return `${display(analysis.width)} × ${display(analysis.depth)} × ${display(analysis.height)} ${analysis.unit}`;
+}
+
+export default function ProductModelAnalysis({ productId, supabase, existing, productInfo, setProductInfo, onSaved }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [stlUnit, setStlUnit] = useState('mm');
   const [analysis, setAnalysis] = useState<ModelAnalysis | null>(existing || null);
@@ -40,14 +53,21 @@ export default function ProductModelAnalysis({ productId, supabase, existing, on
         width: result.width,
         depth: result.depth,
         height: result.height,
-        volume: result.volume,
-        surface_area: result.surface_area,
-        triangle_count: result.triangle_count,
-        object_count: result.object_count,
-        watertight: result.watertight,
+        material: result.material,
+        weight: result.weight,
+        weight_unit: result.weight_unit,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'product_id' });
       if (saveError) throw new Error('The model analysis could not be saved.');
+
+      const nextInfo = {
+        ...productInfo,
+        dimensions: productInfo.dimensions.trim() || dimensionsFrom(result),
+        material: productInfo.material.trim() || result.material || productInfo.material,
+        lead_time_text: productInfo.lead_time_text.trim() || '2-3 working days',
+        finish: productInfo.finish.trim() || 'Natural 3D Finish',
+      };
+      setProductInfo(nextInfo);
       setAnalysis(result);
       onSaved(result);
       setFile(null);
@@ -59,12 +79,12 @@ export default function ProductModelAnalysis({ productId, supabase, existing, on
   }
 
   return <section className="admin-card admin-card-wide admin-model-card">
-    <div className="admin-model-heading"><div><h2>3D Model Analysis</h2><p className="admin-muted">Upload an STL or 3MF file to extract verified geometry for product information and the AI assistant. The model file remains private.</p></div><span className="admin-ai-badge">Admin only</span></div>
+    <div className="admin-model-heading"><div><h2>3D Model Analysis</h2><p className="admin-muted">Upload an STL or 3MF file to extract verified dimensions for product information and the AI assistant. The model file remains private.</p></div><span className="admin-ai-badge">Admin only</span></div>
     {!productId ? <p className="admin-notice info">Save the product first, then add a model file here.</p> : <>
-      <div className="admin-model-upload-row"><label className="admin-field"><span>Model file</span><input type="file" accept=".stl,.3mf,model/stl,model/3mf" onChange={(event) => setFile(event.target.files?.[0] || null)} /><small>Maximum 50 MB. 3MF files can include units and object metadata; STL units must be selected.</small></label>{file?.name.toLowerCase().endsWith('.stl') && <label className="admin-field"><span>STL units</span><select value={stlUnit} onChange={(event) => setStlUnit(event.target.value)}><option value="mm">Millimetres</option><option value="cm">Centimetres</option><option value="in">Inches</option></select></label>}</div>
-      <button className="admin-button secondary admin-model-analyse" type="button" disabled={!file || busy} onClick={analyseAndSave}>{busy ? 'Analysing and saving...' : 'Analyse 3D Model'}</button>
+      <div className="admin-model-upload-row"><label className="admin-field"><span>Model file</span><input type="file" accept=".stl,.3mf,model/stl,model/3mf" onChange={(event) => setFile(event.target.files?.[0] || null)} /><small>Maximum 50 MB. 3MF files can include units and metadata; STL units must be selected.</small></label>{file?.name.toLowerCase().endsWith('.stl') && <label className="admin-field"><span>STL units</span><select value={stlUnit} onChange={(event) => setStlUnit(event.target.value)}><option value="mm">Millimetres</option><option value="cm">Centimetres</option><option value="in">Inches</option></select></label>}</div>
+      <button className="admin-button primary admin-ai-generate admin-model-analyse" type="button" disabled={!file || busy} onClick={analyseAndSave}>{busy ? 'Analysing...' : 'Analyse 3D Model'}</button>
       {error && <p className="admin-notice error">{error}</p>}
-      {analysis && <div className="admin-model-results"><div><strong>{analysis.filename}</strong><span>{analysis.format.toUpperCase()} · {analysis.unit}</span></div><dl className="admin-model-stats"><div><dt>Dimensions</dt><dd>{display(analysis.width)} × {display(analysis.depth)} × {display(analysis.height)} {analysis.unit}</dd></div><div><dt>Volume</dt><dd>{display(analysis.volume)} {analysis.volume === null ? '' : `${analysis.unit}³`}</dd></div><div><dt>Surface area</dt><dd>{display(analysis.surface_area)} {analysis.surface_area === null ? '' : `${analysis.unit}²`}</dd></div><div><dt>Triangles</dt><dd>{analysis.triangle_count.toLocaleString()}</dd></div><div><dt>Objects</dt><dd>{analysis.object_count}</dd></div><div><dt>Mesh status</dt><dd>{analysis.watertight === null ? 'Not checked' : analysis.watertight ? 'Appears watertight' : 'Needs review'}</dd></div></dl><p className="admin-muted">These measurements are supplied to the AI as technical facts. Material, colour, finish, print time and price still need to be entered separately.</p></div>}
+      {analysis && <div className="admin-model-results"><div><strong>{analysis.filename}</strong><span>{analysis.format.toUpperCase()} · {analysis.unit}</span></div><dl className="admin-model-stats"><div><dt>Dimensions</dt><dd>{dimensionsFrom(analysis)}</dd></div><div><dt>Material</dt><dd>{analysis.material || 'Not available'}</dd></div><div><dt>Weight</dt><dd>{analysis.weight === null ? 'Not available' : `${analysis.weight} ${analysis.weight_unit || 'g'}`}</dd></div></dl><p className="admin-muted">Dimensions and reliable metadata fill empty product fields. Fran can edit them before saving.</p></div>}
     </>}
   </section>;
 }

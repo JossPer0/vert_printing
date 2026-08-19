@@ -33,7 +33,7 @@ function safeFacts(product) {
       format: clean(value.format), filename: clean(value.filename), unit: clean(value.unit),
       width: Number.isFinite(value.width) ? value.width : null, depth: Number.isFinite(value.depth) ? value.depth : null, height: Number.isFinite(value.height) ? value.height : null,
       volume: Number.isFinite(value.volume) ? value.volume : null, surface_area: Number.isFinite(value.surface_area) ? value.surface_area : null,
-      triangle_count: Number.isFinite(value.triangle_count) ? value.triangle_count : null, object_count: Number.isFinite(value.object_count) ? value.object_count : null, watertight: typeof value.watertight === 'boolean' ? value.watertight : null,
+      triangle_count: Number.isFinite(value.triangle_count) ? value.triangle_count : null, object_count: Number.isFinite(value.object_count) ? value.object_count : null, watertight: typeof value.watertight === 'boolean' ? value.watertight : null, material: clean(value.material), weight: Number.isFinite(value.weight) ? value.weight : null, weight_unit: clean(value.weight_unit),
     };
   }
   return facts;

@@ -13,6 +13,9 @@ export type ModelAnalysis = {
   triangle_count: number;
   object_count: number;
   watertight: boolean | null;
+  material: string | null;
+  weight: number | null;
+  weight_unit: string | null;
 };
 
 type Point = [number, number, number];
@@ -86,7 +89,7 @@ function parseBinaryStl(bytes: Uint8Array, filename: string, unit: string): Mode
     triangles.push([points[0], points[1], points[2]]);
     offset += 2;
   }
-  return analyseTriangles(triangles, { format: 'stl', filename, file_size_bytes: bytes.byteLength, unit, object_count: 1 });
+  return analyseTriangles(triangles, { format: 'stl', filename, file_size_bytes: bytes.byteLength, unit, object_count: 1, material: null, weight: null, weight_unit: null });
 }
 
 function parseAsciiStl(text: string, filename: string, unit: string): ModelAnalysis {
@@ -94,7 +97,7 @@ function parseAsciiStl(text: string, filename: string, unit: string): ModelAnaly
   if (!values.length || values.length % 3 !== 0) throw new Error('This STL file does not contain readable triangle geometry.');
   const triangles: Triangle[] = [];
   for (let index = 0; index < values.length; index += 3) triangles.push([values[index], values[index + 1], values[index + 2]]);
-  return analyseTriangles(triangles, { format: 'stl', filename, file_size_bytes: new TextEncoder().encode(text).byteLength, unit, object_count: 1 });
+  return analyseTriangles(triangles, { format: 'stl', filename, file_size_bytes: new TextEncoder().encode(text).byteLength, unit, object_count: 1, material: null, weight: null, weight_unit: null });
 }
 
 function parseStl(file: File, bytes: Uint8Array, unit: string) {
@@ -111,10 +114,23 @@ function parse3mf(file: File, bytes: Uint8Array): ModelAnalysis {
   const triangles: Triangle[] = [];
   let objectCount = 0;
   let unit = 'mm';
+  let material: string | null = null;
+  let weight: number | null = null;
+  let weightUnit: string | null = null;
   for (const [, modelBytes] of modelEntries) {
     const xml = new DOMParser().parseFromString(strFromU8(modelBytes), 'application/xml');
     if (xml.querySelector('parsererror')) continue;
     unit = normaliseUnit(xml.documentElement.getAttribute('unit'));
+    for (const metadata of Array.from(xml.getElementsByTagNameNS('*', 'metadata'))) {
+      const name = (metadata.getAttribute('name') || '').toLowerCase();
+      const value = metadata.textContent?.trim() || '';
+      if (!value) continue;
+      if (!material && /^(material|material_name|filament|filament_type)$/.test(name)) material = value.slice(0, 120);
+      if (weight === null && /^(weight|mass)$/.test(name)) {
+        const match = value.match(/([0-9]+(?:\.[0-9]+)?)\s*(mg|g|kg|oz|lb)?/i);
+        if (match) { weight = Number(match[1]); weightUnit = (match[2] || 'g').toLowerCase(); }
+      }
+    }
     for (const object of Array.from(xml.getElementsByTagNameNS('*', 'object'))) {
       const mesh = object.getElementsByTagNameNS('*', 'mesh')[0];
       if (!mesh) continue;
@@ -130,7 +146,7 @@ function parse3mf(file: File, bytes: Uint8Array): ModelAnalysis {
       if (objectTriangles) objectCount += 1;
     }
   }
-  return analyseTriangles(triangles, { format: '3mf', filename: file.name, file_size_bytes: file.size, unit, object_count: objectCount });
+  return analyseTriangles(triangles, { format: '3mf', filename: file.name, file_size_bytes: file.size, unit, object_count: objectCount, material, weight, weight_unit: weightUnit });
 }
 export async function analyseModelFile(file: File, stlUnit = 'mm'): Promise<ModelAnalysis> {
   const extension = file.name.toLowerCase().split('.').pop();
