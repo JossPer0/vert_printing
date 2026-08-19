@@ -1492,6 +1492,22 @@ h3 {
   .admin-empty {
     padding: 18px;
   }
+
+  .admin-card-wide,
+  .admin-field,
+  .admin-field-grid,
+  .admin-spec-row {
+    min-width: 0;
+  }
+
+  .admin-field-grid,
+  .admin-spec-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-spec-row .admin-button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 760px) {
