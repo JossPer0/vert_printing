@@ -1572,7 +1572,8 @@ h3 {
   }
 
   .admin-row-actions .admin-button,
-  .admin-row-actions .admin-upload {
+  .admin-row-actions .admin-upload,
+  .admin-row-actions .admin-upload.admin-icon-button {
     width: 100%;
     min-width: 0;
     white-space: nowrap;
