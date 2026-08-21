@@ -101,7 +101,7 @@ function pageShell({ title, description, canonical, body, structuredData = '' })
     </header>
     <main>${body}</main>
     <footer class="site-footer"><p>&copy; 2026 Vert Printing. All rights reserved.</p><div><a href="https://www.facebook.com/vertprinting">Facebook</a><a href="https://www.instagram.com/vertprinting">Instagram</a><a href="https://wa.me/27662456511">WhatsApp</a></div></footer>
-    <script src="/script.js" type="module"></script>
+    <script src="/script.js" type="module"></script><script src="/product-options.js" type="module"></script>
   </body>
 </html>`;
 }
@@ -188,7 +188,7 @@ export async function onRequestGet({ env, params }) {
         <strong>${escapeHtml(price)}</strong>
         ${specs.slice(0, 4).length ? `<div class="product-summary-specs">${renderDefinitionList(specs.slice(0, 4))}</div>` : ''}
         ${product.requires_artwork ? '<div class="product-info-note"><strong>Artwork</strong><span>For best print quality, vector artwork is preferred. If you are unsure, send what you have and we will check it before production.</span></div>' : ''}
-        <a class="button primary" href="${quoteHref}">${escapeHtml(cta)}</a>
+        <a class="button primary" data-product-name="${escapeHtml(product.name)}" href="${quoteHref}">${escapeHtml(cta)}</a>
       </div>
     </div>
     ${infoSectionsMarkup || specsMarkup ? `<div class="product-detail-info">${infoSectionsMarkup}${specsMarkup ? `<section class="product-spec-panel"><h2>Specifications</h2>${specsMarkup}</section>` : ''}</div>` : ''}

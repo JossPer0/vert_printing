@@ -2441,3 +2441,19 @@ h3 {
 .admin-option-value.has-picker { grid-template-columns: minmax(0,1fr) minmax(0,1fr) 150px 54px 84px; }
 .admin-colour-picker { width:44px !important; min-height:44px !important; padding:4px !important; cursor:pointer; }
 @media (max-width: 720px) { .admin-option-value.has-picker { grid-template-columns:1fr 1fr; } .admin-option-value.has-picker .admin-colour-picker { grid-column:1; } }
+.product-options { display:grid; gap:12px; margin-top:2px; padding-top:18px; border-top:1px solid var(--line); }
+.product-options h2 { margin:0; font-size:1.15rem; }
+.product-options > p { margin:0; color:var(--muted); font-size:.92rem; }
+.product-option-group { display:grid; gap:10px; margin:0; padding:0; border:0; }
+.product-option-group legend, .product-option-select > span { margin-bottom:2px; color:var(--ink); font-size:.9rem; font-weight:800; }
+.product-option-select { display:grid; gap:7px; }
+.product-option-select select { width:100%; min-height:44px; border:1px solid #d2d0ca; border-radius:8px; padding:10px 12px; color:var(--ink); background:#fff; font:inherit; }
+.product-option-radioes { display:flex; flex-wrap:wrap; gap:10px; }
+.product-option-radioes label { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); border-radius:8px; padding:10px 12px; background:#fff; }
+.product-option-swatches { display:flex; flex-wrap:wrap; gap:10px; }
+.product-option-swatch { position:relative; display:inline-flex; }
+.product-option-swatch input { position:absolute; opacity:0; pointer-events:none; }
+.product-option-swatch span { display:block; width:38px; height:38px; border:3px solid #fff; border-radius:50%; background:var(--swatch-color); box-shadow:0 0 0 1px #c9c4bc; cursor:pointer; }
+.product-option-swatch input:checked + span { box-shadow:0 0 0 2px var(--pink), 0 0 0 5px rgba(236,22,140,.18); }
+.product-option-swatch input:focus-visible + span { outline:3px solid rgba(236,22,140,.25); outline-offset:3px; }
+@media (max-width: 720px) { .product-option-radioes label { flex:1 1 140px; } }

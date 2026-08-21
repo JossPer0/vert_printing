@@ -1,3 +1,13 @@
+try {
+  const pendingProduct = JSON.parse(sessionStorage.getItem('vert-product-request') || 'null');
+  if (pendingProduct) {
+    const productField = document.querySelector('#quote-form input[name="product"]');
+    const detailsField = document.querySelector('#quote-form textarea[name="details"]');
+    if (productField && pendingProduct.product) productField.value = pendingProduct.product;
+    if (detailsField && pendingProduct.options?.length) detailsField.value = `Selected options: ${pendingProduct.options.join(', ')}`;
+    sessionStorage.removeItem('vert-product-request');
+  }
+} catch { /* Ignore unavailable session storage. */ }
 const navToggle = document.querySelector(".nav-toggle");
 const siteNav = document.querySelector(".site-nav");
 const quoteForm = document.querySelector("#quote-form");
