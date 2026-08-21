@@ -3,7 +3,7 @@ const CART_KEY = 'vert-cart-v1';
 const money = (value) => `R${Number(value).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 const readCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch { return []; } };
-const saveCart = (cart) => localStorage.setItem(CART_KEY, JSON.stringify(cart));
+const saveCart = (cart) => { localStorage.setItem(CART_KEY, JSON.stringify(cart)); document.dispatchEvent(new CustomEvent('vert-cart-updated')); };
 
 function normaliseItem(item) {
   return {
@@ -134,6 +134,7 @@ async function submitOrder(event) {
     const result = await response.json();
     if (!response.ok || !result.ok) throw new Error(result.error || 'We could not send your order request right now.');
     localStorage.removeItem(CART_KEY);
+    document.dispatchEvent(new CustomEvent('vert-cart-updated'));
     renderConfirmation(result.order_number);
   } catch (error) {
     status.textContent = error.message || 'We could not send your order request right now.';

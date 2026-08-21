@@ -12,6 +12,30 @@ const navToggle = document.querySelector(".nav-toggle");
 const siteNav = document.querySelector(".site-nav");
 const quoteForm = document.querySelector("#quote-form");
 const formNote = document.querySelector("#form-note");
+const CART_KEY = 'vert-cart-v1';
+const cartCountBadges = document.querySelectorAll('[data-cart-count]');
+
+function readCartCount() {
+  try {
+    const cart = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+    if (!Array.isArray(cart)) return 0;
+    return cart.reduce((total, item) => total + (Number.parseInt(item.quantity, 10) || 0), 0);
+  } catch {
+    return 0;
+  }
+}
+
+function updateCartCount() {
+  const count = readCartCount();
+  cartCountBadges.forEach((badge) => {
+    badge.textContent = String(count);
+    badge.hidden = count === 0;
+  });
+}
+
+updateCartCount();
+window.addEventListener('storage', updateCartCount);
+document.addEventListener('vert-cart-updated', updateCartCount);
 
 navToggle?.addEventListener("click", () => {
   const isOpen = siteNav.classList.toggle("open");

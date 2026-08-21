@@ -95,6 +95,37 @@ a {
   color: #fff;
   background: rgba(255, 255, 255, 0.13);
 }
+.site-nav .nav-cart-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.site-nav .nav-cart-link:hover,
+.site-nav .nav-cart-link[aria-current="page"] {
+  color: #fff;
+  border-color: rgba(236, 22, 140, 0.72);
+  background: rgba(236, 22, 140, 0.22);
+}
+
+.site-nav [data-cart-count] {
+  min-width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  padding: 0 6px;
+  color: #fff;
+  background: var(--hot-pink);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.site-nav [data-cart-count][hidden] {
+  display: none;
+}
 
 .nav-toggle {
   display: none;
