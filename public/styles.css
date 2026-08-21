@@ -199,7 +199,7 @@ h3 {
   display: inline-flex;
   min-height: 48px;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   border: 0;
   border-radius: 7px;
   padding: 12px 18px;
@@ -1134,7 +1134,7 @@ h3 {
 .admin-button {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   min-height: 42px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -1349,7 +1349,7 @@ h3 {
 
 .admin-badge {
   display: inline-flex;
-  justify-content: center;
+  justify-content: space-between;
   width: fit-content;
   min-width: 78px;
   border-radius: 999px;
@@ -1372,7 +1372,7 @@ h3 {
   position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   min-height: 42px;
   border: 1px solid var(--admin-border);
   border-radius: 8px;
@@ -1790,7 +1790,7 @@ h3 {
   min-height: 36px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   border: 1px solid #d6d1c9;
   border-radius: 999px;
   padding: 7px 13px;
@@ -1882,7 +1882,7 @@ h3 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 340px));
   gap: 24px;
-  justify-content: center;
+  justify-content: space-between;
 }
 
 .shop-card {
