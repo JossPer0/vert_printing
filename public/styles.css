@@ -2469,3 +2469,24 @@ h3 {
 .admin-palette-swatches { display:flex; flex-wrap:wrap; gap:8px; }
 .admin-palette-swatch { width:32px; height:32px; border:3px solid #fff; border-radius:50%; box-shadow:0 0 0 1px #c9c4bc; cursor:pointer; }
 .admin-palette-swatch:hover, .admin-palette-swatch:focus-visible { transform:scale(1.1); box-shadow:0 0 0 2px var(--admin-pink), 0 0 0 5px rgba(236,22,140,.16); }
+.cart-shell { padding:52px 0 84px; }
+.cart-heading { display:flex; justify-content:space-between; gap:24px; align-items:flex-end; margin-bottom:28px; }
+.cart-heading h1 { margin:0 0 10px; }
+.cart-heading p { margin:0; color:var(--muted); }
+.cart-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(280px,360px); gap:24px; align-items:start; }
+.cart-items, .cart-summary { border:1px solid var(--line); border-radius:10px; padding:20px; background:#fff; }
+.cart-items { display:grid; gap:0; }
+.cart-item { display:flex; justify-content:space-between; gap:20px; padding:18px 0; border-bottom:1px solid var(--line); }
+.cart-item:first-child { padding-top:0; }
+.cart-item:last-child { border-bottom:0; padding-bottom:0; }
+.cart-item h2 { margin:0 0 8px; font-size:1.05rem; }
+.cart-item p, .cart-item ul { margin:0 0 10px; color:var(--muted); }
+.cart-item ul { padding-left:18px; font-size:.9rem; }
+.cart-item label { display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-size:.86rem; font-weight:800; }
+.cart-quantity { width:70px; min-height:38px; border:1px solid #d2d0ca; border-radius:8px; padding:8px; font:inherit; }
+.cart-remove { display:block; margin-top:10px; border:0; padding:0; color:var(--teal-dark); background:transparent; font:inherit; font-weight:800; cursor:pointer; }
+.cart-summary { display:grid; gap:16px; }
+.cart-summary h2 { margin:0; font-size:1.1rem; }
+.cart-summary > div { display:flex; justify-content:space-between; padding-bottom:16px; border-bottom:1px solid var(--line); }
+.cart-summary p { margin:0; color:var(--muted); font-size:.9rem; line-height:1.5; }
+@media (max-width:720px) { .cart-heading, .cart-layout { display:grid; grid-template-columns:1fr; } .cart-heading { gap:12px; } .cart-item { gap:12px; } }
