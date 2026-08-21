@@ -36,6 +36,16 @@ type OptionGroup = {
   option_values?: { is_active: boolean | null }[] | null;
 };
 
+type InitialCatalogue = {
+  loaded?: boolean;
+  products?: Product[];
+  images?: Record<string, ProductImage>;
+  imageUrls?: Record<string, string>;
+  categories?: Category[];
+  productCategories?: ProductCategory[];
+  productsWithOptions?: string[];
+};
+
 const CART_KEY = 'vert-cart-v1';
 
 function formatMoney(value: number) {
@@ -137,19 +147,21 @@ function CartConfirmationModal({ item, onClose }: { item: { name: string; quanti
     </div>
   </div>;
 }
-export default function ShopCatalogue() {
+export default function ShopCatalogue({ initialCatalogue }: { initialCatalogue?: InitialCatalogue }) {
+  const hasInitialCatalogue = Boolean(initialCatalogue?.loaded);
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [images, setImages] = useState<Record<string, ProductImage>>({});
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
-  const [productsWithOptions, setProductsWithOptions] = useState<string[]>([]);
+  const [products, setProducts] = useState<Product[]>(initialCatalogue?.products || []);
+  const [images, setImages] = useState<Record<string, ProductImage>>(initialCatalogue?.images || {});
+  const [initialImageUrls] = useState<Record<string, string>>(initialCatalogue?.imageUrls || {});
+  const [categories, setCategories] = useState<Category[]>(initialCatalogue?.categories || []);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>(initialCatalogue?.productCategories || []);
+  const [productsWithOptions, setProductsWithOptions] = useState<string[]>(initialCatalogue?.productsWithOptions || []);
   const [addedProductId, setAddedProductId] = useState('');
   const [cartConfirmation, setCartConfirmation] = useState<{ name: string; quantity: number } | null>(null);
   const [activeCategory, setActiveCategory] = useState('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!hasInitialCatalogue);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -216,22 +228,22 @@ export default function ShopCatalogue() {
           setProductsWithOptions([]);
         }
       } catch {
-        setError("We couldn't load the shop right now. Please try again shortly or request a quote.");
+        if (!hasInitialCatalogue) setError("We couldn't load the shop right now. Please try again shortly or request a quote.");
       } finally {
         setLoading(false);
       }
     }
 
     loadCatalogue();
-  }, []);
+  }, [hasInitialCatalogue]);
 
   const imageUrls = useMemo(() => {
-    if (!supabase) return {};
-    return Object.fromEntries(Object.entries(images).map(([productId, image]) => [
+    const generatedUrls = supabase ? Object.fromEntries(Object.entries(images).map(([productId, image]) => [
       productId,
       supabase.storage.from('product-images').getPublicUrl(image.storage_path).data.publicUrl,
-    ]));
-  }, [images, supabase]);
+    ])) : {};
+    return { ...initialImageUrls, ...generatedUrls };
+  }, [images, initialImageUrls, supabase]);
 
   const productsWithOptionsSet = useMemo(() => new Set(productsWithOptions), [productsWithOptions]);
   const categoryById = useMemo(() => Object.fromEntries(categories.map((category) => [category.id, category])), [categories]);

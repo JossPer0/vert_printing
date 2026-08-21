@@ -24,11 +24,11 @@ function optionList(item) {
 }
 
 function emptyCart() {
-  root.innerHTML = `<div class="cart-empty"><p class="section-kicker">Your order</p><h1>Your cart is empty.</h1><p>Choose a product from the shop to start an order.</p><a class="button primary" href="/shop">Browse the shop</a></div>`;
+  root.innerHTML = `<div class="cart-empty"><p class="section-kicker">Your order</p><h1>Your cart is empty.</h1><p>Choose a product from the shop to start an order.</p><a class="button primary" href="/shop/">Browse the shop</a></div>`;
 }
 
 function renderConfirmation(orderNumber) {
-  root.innerHTML = `<div class="cart-confirmation"><p class="section-kicker">Order received</p><h1>Thanks, your order request has been sent.</h1><p>Reference <strong>${escapeHtml(orderNumber)}</strong>. We will review the details and confirm collection, delivery and payment before production starts.</p><div class="cart-actions"><a class="button primary" href="/shop">Continue shopping</a><a class="button secondary" href="/">Back to home</a></div></div>`;
+  root.innerHTML = `<div class="cart-confirmation"><p class="section-kicker">Order received</p><h1>Thanks, your order request has been sent.</h1><p>Reference <strong>${escapeHtml(orderNumber)}</strong>. We will review the details and confirm collection, delivery and payment before production starts.</p><div class="cart-actions"><a class="button primary" href="/shop/">Continue shopping</a><a class="button secondary" href="/">Back to home</a></div></div>`;
 }
 
 function render() {
@@ -39,7 +39,7 @@ function render() {
   root.innerHTML = `
     <div class="cart-heading">
       <div><p class="section-kicker">Your order</p><h1>Review your order.</h1><p>Check your products, choices and quantities before sending the order request.</p></div>
-      <a class="shop-quote-link" href="/shop">Continue shopping -&gt;</a>
+      <a class="shop-quote-link" href="/shop/">Continue shopping -&gt;</a>
     </div>
     <div class="cart-layout">
       <div class="cart-items" aria-label="Cart items">

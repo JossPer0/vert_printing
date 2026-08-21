@@ -1,5 +1,151 @@
 ---
 import ShopCatalogue from '../components/shop/ShopCatalogue';
+
+type Product = {
+  id: string;
+  name: string;
+  slug: string;
+  product_type: string;
+  pricing_mode: string;
+  base_price: number | null;
+  requires_artwork: boolean;
+  minimum_quantity: number | null;
+  maximum_quantity: number | null;
+};
+
+type ProductImage = {
+  product_id: string;
+  storage_path: string;
+  alt_text: string | null;
+  sort_order: number;
+};
+
+type Category = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+type ProductCategory = {
+  product_id: string;
+  category_id: string;
+};
+
+type InitialCatalogue = {
+  loaded: boolean;
+  products: Product[];
+  images: Record<string, ProductImage>;
+  imageUrls: Record<string, string>;
+  categories: Category[];
+  productCategories: ProductCategory[];
+  productsWithOptions: string[];
+};
+
+const emptyCatalogue: InitialCatalogue = {
+  loaded: false,
+  products: [],
+  images: {},
+  imageUrls: {},
+  categories: [],
+  productCategories: [],
+  productsWithOptions: [],
+};
+
+async function readPublicSupabaseConfig() {
+  const envUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+  const envKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+  if (envUrl && envKey) return { supabaseUrl: envUrl, supabaseAnonKey: envKey };
+
+  try {
+    const response = await fetch('https://www.vertprinting.co.za/api/config');
+    if (!response.ok) return null;
+    const config = await response.json();
+    if (!config.supabaseUrl || !config.supabaseAnonKey) return null;
+    return { supabaseUrl: config.supabaseUrl as string, supabaseAnonKey: config.supabaseAnonKey as string };
+  } catch {
+    return null;
+  }
+}
+
+function restUrl(baseUrl: string, path: string) {
+  return `${baseUrl}/rest/v1/${path}`;
+}
+
+async function supabaseGet<T>(baseUrl: string, anonKey: string, path: string): Promise<T> {
+  const response = await fetch(restUrl(baseUrl, path), {
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+    },
+  });
+  if (!response.ok) throw new Error(`Supabase ${response.status}`);
+  return response.json() as Promise<T>;
+}
+
+function inFilter(values: string[]) {
+  return `(${values.map((value) => `"${String(value).replaceAll('"', '\\"')}"`).join(',')})`;
+}
+
+async function loadInitialCatalogue(): Promise<InitialCatalogue> {
+  const config = await readPublicSupabaseConfig();
+  if (!config) return emptyCatalogue;
+
+  try {
+    const { supabaseUrl, supabaseAnonKey } = config;
+    const [products, categories, productCategories] = await Promise.all([
+      supabaseGet<Product[]>(
+        supabaseUrl,
+        supabaseAnonKey,
+        'products?select=id,name,slug,product_type,pricing_mode,base_price,requires_artwork,minimum_quantity,maximum_quantity&is_active=eq.true&is_published=eq.true&archived_at=is.null&order=created_at.desc',
+      ),
+      supabaseGet<Category[]>(supabaseUrl, supabaseAnonKey, 'categories?select=id,name,slug&is_active=eq.true&order=sort_order.asc,name.asc'),
+      supabaseGet<ProductCategory[]>(supabaseUrl, supabaseAnonKey, 'product_categories?select=product_id,category_id'),
+    ]);
+
+    const productIds = products.map((product) => product.id);
+    const images: Record<string, ProductImage> = {};
+    const imageUrls: Record<string, string> = {};
+    let productsWithOptions: string[] = [];
+
+    if (productIds.length) {
+      const productIdFilter = inFilter(productIds);
+      const [imageRows, optionRows] = await Promise.all([
+        supabaseGet<ProductImage[]>(
+          supabaseUrl,
+          supabaseAnonKey,
+          `product_images?select=product_id,storage_path,alt_text,sort_order&product_id=in.${encodeURIComponent(productIdFilter)}&order=sort_order.asc`,
+        ),
+        supabaseGet<{ product_id: string }[]>(
+          supabaseUrl,
+          supabaseAnonKey,
+          `option_groups?select=product_id&product_id=in.${encodeURIComponent(productIdFilter)}`,
+        ).catch(() => []),
+      ]);
+
+      for (const image of imageRows) {
+        if (images[image.product_id]) continue;
+        images[image.product_id] = image;
+        imageUrls[image.product_id] = `${supabaseUrl}/storage/v1/object/public/product-images/${image.storage_path}`;
+      }
+
+      productsWithOptions = [...new Set(optionRows.map((row) => row.product_id).filter(Boolean))];
+    }
+
+    return {
+      loaded: true,
+      products,
+      images,
+      imageUrls,
+      categories,
+      productCategories,
+      productsWithOptions,
+    };
+  } catch {
+    return emptyCatalogue;
+  }
+}
+
+const initialCatalogue = await loadInitialCatalogue();
 ---
 <!doctype html>
 <html lang="en">
@@ -8,7 +154,11 @@ import ShopCatalogue from '../components/shop/ShopCatalogue';
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Browse published Vert Printing catalogue items and request a custom quote for printing, embroidery, stickers, labels and laser cutting." />
     <meta name="robots" content="index, follow, max-image-preview:large" />
-    <link rel="canonical" href="https://www.vertprinting.co.za/shop" />
+    <link rel="canonical" href="https://www.vertprinting.co.za/shop/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Shop Catalogue | Vert Printing Kloof" />
+    <meta property="og:description" content="Browse published Vert Printing catalogue items and request a custom quote for printing, embroidery, stickers, labels and laser cutting." />
+    <meta property="og:url" content="https://www.vertprinting.co.za/shop/" />
     <title>Shop Catalogue | Vert Printing Kloof</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -27,7 +177,7 @@ import ShopCatalogue from '../components/shop/ShopCatalogue';
         <a href="/#work">Our Work</a>
         <a href="/#story">About</a>
         <a href="/#quote">Get a Quote</a>
-        <a href="/shop" aria-current="page">Shop</a>
+        <a href="/shop/" aria-current="page">Shop</a>
         <a class="nav-cart-link" href="/cart/" data-cart-link>Cart <span data-cart-count hidden>0</span></a>
       </nav>
     </header>
@@ -38,7 +188,7 @@ import ShopCatalogue from '../components/shop/ShopCatalogue';
         <p>Browse the range, or request something custom. <a class="shop-quote-link" href="/#quote">Request a quote -&gt;</a></p>
       </section>
       <section class="shop-section">
-        <ShopCatalogue client:load />
+        <ShopCatalogue initialCatalogue={initialCatalogue} client:load />
       </section>
     </main>
     <footer class="site-footer">

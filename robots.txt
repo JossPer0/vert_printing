@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Allow: /shop/
+Allow: /product/
 
 Sitemap: https://www.vertprinting.co.za/sitemap.xml

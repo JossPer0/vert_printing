@@ -47,7 +47,7 @@ async function fetchProducts(env) {
 export async function onRequestGet({ env }) {
   const urls = [
     { loc: `${SITE_URL}/` },
-    { loc: `${SITE_URL}/shop` },
+    { loc: `${SITE_URL}/shop/` },
   ];
 
   const products = await fetchProducts(env);
