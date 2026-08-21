@@ -189,7 +189,31 @@ export async function onRequestGet({ env, params }) {
       availability: 'https://schema.org/InStock',
     };
   }
-  const structuredData = `<script type="application/ld+json">${JSON.stringify(productJson)}</script>`;
+  const breadcrumbJson = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: 'https://www.vertprinting.co.za/',
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Shop',
+        item: 'https://www.vertprinting.co.za/shop/',
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: product.name,
+        item: `https://www.vertprinting.co.za/product/${product.slug}`,
+      },
+    ],
+  };
+  const structuredData = `<script type="application/ld+json">${JSON.stringify(productJson)}</script><script type="application/ld+json">${JSON.stringify(breadcrumbJson)}</script>`;
 
   const body = `<section class="product-detail">
     <nav class="product-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><a href="/shop/">Shop</a><span>/</span><span>${escapeHtml(product.name)}</span></nav>
