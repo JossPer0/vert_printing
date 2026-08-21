@@ -2432,3 +2432,8 @@ h3 {
 .admin-option-actions { justify-content:space-between; }
 .admin-option-save { padding-top:16px; border-top:1px solid #eee9e2; }
 @media (max-width: 720px) { .admin-option-group-heading { flex-direction:column; } .admin-option-value-head { display:none; } .admin-option-value { grid-template-columns:1fr 1fr; } .admin-option-value input[type=number] { grid-column:1; } .admin-option-value .admin-button { grid-column:2; } .admin-option-actions { justify-content:flex-start; } }
+/* Keep option rows on the same control system as the rest of Shop Manager. */
+.admin-option-value input { width:100%; min-height:44px; border:1px solid #d2d0ca; border-radius:8px; padding:10px 12px; color:var(--admin-text); background:#fff; font:inherit; }
+.admin-option-value input:focus { outline:3px solid rgba(236,22,140,.18); border-color:var(--admin-pink); }
+.admin-option-value .admin-button { min-height:42px; border-radius:8px; padding:10px 15px; font:inherit; font-weight:900; }
+.admin-option-actions .admin-button, .admin-option-save .admin-button { min-height:42px; border-radius:8px; padding:10px 15px; font:inherit; font-weight:900; }
