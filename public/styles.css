@@ -2419,3 +2419,16 @@ h3 {
 .admin-option-value { display:grid; grid-template-columns:1fr 1fr 150px auto; gap:10px; align-items:center; }
 .admin-option-actions, .admin-option-save { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:14px; }
 @media (max-width: 720px) { .admin-section-heading { flex-direction:column; } .admin-option-value { grid-template-columns:1fr 1fr; } .admin-option-value .admin-button { width:100%; } }
+.admin-option-group { margin-top: 20px; border-color: #ded8d0; box-shadow: 0 8px 22px rgba(31,36,38,.05); }
+.admin-option-group-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid #eee9e2; }
+.admin-option-group-heading h3 { margin:4px 0 0; font-size:1.05rem; }
+.admin-option-number { color: var(--admin-muted); font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.admin-option-values { margin-top:18px; padding:14px; border:1px solid #eee9e2; border-radius:8px; background:#fbfaf7; }
+.admin-option-value-head, .admin-option-value { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 150px 84px; gap:10px; align-items:center; }
+.admin-option-value-head { padding:0 10px 8px; color:var(--admin-muted); font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+.admin-option-value { padding:10px 0; border-top:1px solid #e8e1d9; }
+.admin-option-value input { min-width:0; }
+.admin-option-value .admin-button { min-height:38px; padding:8px 10px; font-size:.82rem; }
+.admin-option-actions { justify-content:space-between; }
+.admin-option-save { padding-top:16px; border-top:1px solid #eee9e2; }
+@media (max-width: 720px) { .admin-option-group-heading { flex-direction:column; } .admin-option-value-head { display:none; } .admin-option-value { grid-template-columns:1fr 1fr; } .admin-option-value input[type=number] { grid-column:1; } .admin-option-value .admin-button { grid-column:2; } .admin-option-actions { justify-content:flex-start; } }
