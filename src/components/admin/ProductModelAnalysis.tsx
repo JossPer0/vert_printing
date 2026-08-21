@@ -39,6 +39,7 @@ export default function ProductModelAnalysis({ productId, supabase, existing, pr
     setError('');
     try {
       const result = await analyseModelFile(file, stlUnit);
+      const { data: previousModel } = await supabase.from('product_model_files').select('storage_path').eq('product_id', productId).maybeSingle();
       const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
       const storagePath = `products/${productId}/models/${Date.now()}-${safeName}`;
       const upload = await supabase.storage.from('product-models').upload(storagePath, file, { contentType: file.type || 'application/octet-stream', upsert: false });
@@ -58,7 +59,13 @@ export default function ProductModelAnalysis({ productId, supabase, existing, pr
         weight_unit: result.weight_unit,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'product_id' });
-      if (saveError) throw new Error('The model analysis could not be saved.');
+      if (saveError) {
+        await supabase.storage.from('product-models').remove([storagePath]);
+        throw new Error('The model analysis could not be saved.');
+      }
+      if (previousModel?.storage_path && previousModel.storage_path !== storagePath) {
+        await supabase.storage.from('product-models').remove([previousModel.storage_path]);
+      }
 
       const nextInfo = {
         ...productInfo,
