@@ -115,7 +115,7 @@ function pageShell({ title, description, canonical, body, structuredData = '' })
     </header>
     <main>${body}</main>
     <footer class="site-footer"><p>&copy; 2026 Vert Printing. All rights reserved.</p><div><a href="https://www.facebook.com/vertprinting">Facebook</a><a href="https://www.instagram.com/vertprinting">Instagram</a><a href="https://wa.me/27662456511">WhatsApp</a></div></footer>
-    <script src="/script.js?v=cart-modal-20260821c" type="module"></script><script src="/product-options.js?v=cart-modal-20260821c" type="module"></script>
+    <script src="/script.js?v=cart-modal-20260821d" type="module"></script><script src="/product-options.js?v=cart-modal-20260821d" type="module"></script>
   </body>
 </html>`;
 }

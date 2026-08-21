@@ -133,7 +133,7 @@ function CartConfirmationModal({ item, onClose }: { item: { name: string; quanti
       <p className="section-kicker">Added to cart</p>
       <h2 id="cart-added-title">{item.name} is in your cart.</h2>
       <p>{item.quantity > 1 ? `${item.quantity} items have` : 'This item has'} been added. You can keep shopping or review your cart.</p>
-      <div className="cart-modal-actions"><button className="button primary" type="button" onClick={onClose}>Continue Shopping</button><a className="button secondary" href="/cart/">Go to Cart</a></div>
+      <div className="cart-modal-actions"><button className="button primary" type="button" onClick={onClose}>Continue Shopping</button><a className="button secondary dark" href="/cart/">Go to Cart</a></div>
     </div>
   </div>;
 }

@@ -47,7 +47,7 @@ function showCartConfirmation(item) {
     <p class="section-kicker">Added to cart</p>
     <h2 id="cart-added-title">${escapeHtml(item.name)} is in your cart.</h2>
     <p>${Number(item.quantity) > 1 ? `${Number(item.quantity)} items have` : 'This item has'} been added. You can keep shopping or review your cart.</p>
-    <div class="cart-modal-actions"><button class="button primary" type="button" data-cart-continue>Continue Shopping</button><a class="button secondary" href="/cart/">Go to Cart</a></div>
+    <div class="cart-modal-actions"><button class="button primary" type="button" data-cart-continue>Continue Shopping</button><a class="button secondary dark" href="/cart/">Go to Cart</a></div>
   </div>`;
   const close = () => backdrop.remove();
   backdrop.addEventListener('click', (event) => {
