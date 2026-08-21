@@ -2456,4 +2456,6 @@ h3 {
 .product-option-swatch span { display:block; width:38px; height:38px; border:3px solid #fff; border-radius:50%; background:var(--swatch-color); box-shadow:0 0 0 1px #c9c4bc; cursor:pointer; }
 .product-option-swatch input:checked + span { box-shadow:0 0 0 2px var(--pink), 0 0 0 5px rgba(236,22,140,.18); }
 .product-option-swatch input:focus-visible + span { outline:3px solid rgba(236,22,140,.25); outline-offset:3px; }
-@media (max-width: 720px) { .product-option-radioes label { flex:1 1 140px; } }
+@media (max-width: 720px) { .product-option-radioes label { flex:1 1 140px; } }.admin-option-value-head, .admin-option-value, .admin-option-value.has-picker { grid-template-columns:minmax(0,1fr) 150px 54px 84px; }
+.admin-colour-placeholder { width:44px; height:44px; display:block; }
+@media (max-width:720px) { .admin-option-value-head, .admin-option-value, .admin-option-value.has-picker { grid-template-columns:1fr 1fr; } .admin-colour-placeholder { display:none; } }
