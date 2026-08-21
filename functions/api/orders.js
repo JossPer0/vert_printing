@@ -218,8 +218,12 @@ export async function onRequestPost({ request, env }) {
     const selectedOptions = [];
     let unitCents = cents(product.base_price);
 
-    if (product.product_type === "configurable" || product.pricing_mode === "from_price") {
-      if (!productGroups.length) return jsonResponse({ error: `${product.name} still needs choices added before it can be ordered online.` }, 400);
+    const productNeedsConfiguredChoices = product.product_type === "configurable" || product.pricing_mode === "from_price";
+    if (productNeedsConfiguredChoices && !productGroups.length) {
+      return jsonResponse({ error: `${product.name} still needs choices added before it can be ordered online.` }, 400);
+    }
+
+    if (productGroups.length) {
       for (const group of productGroups) {
         const selected = item.options.find((option) => (group.option_values || []).some((value) => optionMatches(option, group, value)));
         if (!selected) return jsonResponse({ error: `Please choose ${group.name} for ${product.name}.` }, 400);

@@ -76,8 +76,9 @@ function renderProductInfoSections(product) {
 function renderProductCta(product, quoteHref, cta) {
   const productName = escapeHtml(product.name);
   if (product.pricing_mode === 'quote_only' || product.product_type === 'quote_only') return `<a class="button primary" data-product-name="${productName}" href="${quoteHref}">${escapeHtml(cta)}</a>`;
-  if (product.product_type === 'configurable' || product.pricing_mode === 'from_price') return `<button class="button primary" data-product-name="${productName}" type="button" data-product-action="configure" disabled>Choose options first</button>`;
-  return `<button class="button primary" data-product-name="${productName}" type="button">Add to Cart</button>`;
+  const needsConfiguration = product.product_type === 'configurable' || product.pricing_mode === 'from_price';
+  const checkingLabel = needsConfiguration ? 'Choose options first' : 'Checking options...';
+  return `<button class="button primary" data-product-name="${productName}" type="button" data-product-action="cart" disabled>${checkingLabel}</button>`;
 }
 function pageShell({ title, description, canonical, body, structuredData = '' }) {
   return `<!doctype html>

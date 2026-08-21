@@ -40,7 +40,7 @@ async function loadOptions() {
     if (!product || isQuoteOnly(product)) return;
 
     const configurable = isConfigurable(product);
-    if (configurable) setButtonState(false, 'Choose options first');
+    setButtonState(false, configurable ? 'Choose options first' : 'Checking options...');
 
     const groups = await fetch(`${config.supabaseUrl}/rest/v1/option_groups?select=id,name,display_type,is_required,sort_order,option_values(id,label,value,price_adjustment,is_active,metadata,sort_order)&product_id=eq.${product.id}&order=sort_order.asc`, { headers }).then((response) => response.json());
     if (!Array.isArray(groups)) throw new Error('Options unavailable');
@@ -60,7 +60,7 @@ async function loadOptions() {
       cta.before(root);
       cta.classList.add('product-request-button');
       const updateState = () => {
-        const ready = requiredChoicesMade(usable, configurable);
+        const ready = requiredChoicesMade(usable, true);
         setButtonState(ready, ready ? 'Add to Cart' : 'Choose options first');
       };
       root.addEventListener('change', updateState);
@@ -76,7 +76,7 @@ async function loadOptions() {
 
     cta.removeAttribute('href');
     cta.setAttribute('type', 'button');
-    if (!configurable) setButtonState(true);
+    if (!usable.length && !configurable) setButtonState(true);
     cta.addEventListener('click', () => {
       if (cta.disabled) return;
       const invalid = summary.querySelector('.product-options :invalid');
@@ -103,7 +103,7 @@ async function loadOptions() {
       window.location.href = '/cart';
     });
   } catch {
-    if (cta?.dataset.productAction === 'configure') setButtonState(false, 'Options unavailable');
+    if (cta?.dataset.productAction) setButtonState(false, 'Options unavailable');
   }
 }
 loadOptions();
