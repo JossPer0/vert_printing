@@ -69,17 +69,33 @@ export default function ProductOptionsEditor({ productId, productType, supabase 
       const keep = new Set<string>();
       for (const [groupIndex, group] of groups.entries()) {
         if (!group.name.trim()) continue;
-        const { data: saved, error } = await supabase.from('option_groups').upsert({ id: group.id, product_id: productId, name: group.name.trim(), display_type: group.display_type, is_required: group.is_required, sort_order: groupIndex }, { onConflict: 'id' }).select('id').single();
+        const groupPayload = { product_id: productId, name: group.name.trim(), display_type: group.display_type, is_required: group.is_required, sort_order: groupIndex };
+        const groupQuery = group.id
+          ? supabase.from('option_groups').upsert({ id: group.id, ...groupPayload }, { onConflict: 'id' }).select('id').single()
+          : supabase.from('option_groups').insert(groupPayload).select('id').single();
+        const { data: saved, error } = await groupQuery;
         if (error) throw error;
         keep.add(saved.id);
+
+        const { data: existingValues } = await supabase.from('option_values').select('id').eq('option_group_id', saved.id);
+        const keepValues = new Set<string>();
         const validValues = group.values.filter((value) => value.label.trim());
         for (const [valueIndex, value] of validValues.entries()) {
-          const { error: valueError } = await supabase.from('option_values').upsert({ id: value.id, option_group_id: saved.id, label: value.label.trim(), value: makeStoredValue(value.label), price_adjustment: Number(value.price_adjustment) || 0, sort_order: valueIndex, is_active: value.is_active, metadata: value.metadata || {} }, { onConflict: 'id' });
+          const valuePayload = { option_group_id: saved.id, label: value.label.trim(), value: makeStoredValue(value.label), price_adjustment: Number(value.price_adjustment) || 0, sort_order: valueIndex, is_active: value.is_active, metadata: value.metadata || {} };
+          const valueQuery = value.id
+            ? supabase.from('option_values').upsert({ id: value.id, ...valuePayload }, { onConflict: 'id' }).select('id').single()
+            : supabase.from('option_values').insert(valuePayload).select('id').single();
+          const { data: savedValue, error: valueError } = await valueQuery;
           if (valueError) throw valueError;
+          keepValues.add(savedValue.id);
         }
+        const staleValues = (existingValues || []).map((row) => row.id).filter((id) => !keepValues.has(id));
+        if (staleValues.length) await supabase.from('option_values').delete().in('id', staleValues);
       }
       const stale = (existing || []).map((row) => row.id).filter((id) => !keep.has(id));
       if (stale.length) await supabase.from('option_groups').delete().in('id', stale);
+      const { data: refreshed } = await supabase.from('option_groups').select('id,product_id,name,display_type,is_required,sort_order,option_values(id,option_group_id,label,value,price_adjustment,sort_order,is_active,metadata)').eq('product_id', productId).order('sort_order');
+      setGroups((refreshed || []).map((group: any) => ({ ...group, choice_type: inferChoiceType(group), values: (group.option_values || []).map((value: OptionValue) => ({ ...value, metadata: value.metadata || {} })).sort((a: OptionValue, b: OptionValue) => a.sort_order - b.sort_order) })));
       setMessage('Choices saved.');
     } catch { setMessage('Choices could not be saved. Please try again.'); }
     finally { setBusy(false); }
