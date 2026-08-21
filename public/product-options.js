@@ -15,9 +15,9 @@ function activeValues(group) {
 function selectedControls() {
   return [...(summary.querySelectorAll('.product-options input:checked, .product-options select option:checked') || [])].filter((control) => control.value);
 }
-function requiredChoicesMade(groups) {
+function requiredChoicesMade(groups, requireEveryGroup = false) {
   return groups.every((group) => {
-    if (!group.is_required) return true;
+    if (!requireEveryGroup && !group.is_required) return true;
     const name = `option-${group.id}`;
     if (group.display_type === 'select') return Boolean(summary.querySelector(`select[name="${name}"]`)?.value);
     return Boolean(summary.querySelector(`input[name="${name}"]:checked`));
@@ -59,7 +59,10 @@ async function loadOptions() {
       }).join('')}`;
       cta.before(root);
       cta.classList.add('product-request-button');
-      const updateState = () => setButtonState(requiredChoicesMade(usable), requiredChoicesMade(usable) ? 'Add to Cart' : 'Choose options first');
+      const updateState = () => {
+        const ready = requiredChoicesMade(usable, configurable);
+        setButtonState(ready, ready ? 'Add to Cart' : 'Choose options first');
+      };
       root.addEventListener('change', updateState);
       updateState();
     } else if (configurable) {
