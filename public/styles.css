@@ -2413,3 +2413,9 @@ h3 {
     width: 100%;
   }
 }
+.admin-section-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }
+.admin-option-group { margin-top:18px; padding:18px; border:1px solid var(--admin-border); border-radius:8px; background:#fff; }
+.admin-option-values { display:grid; gap:10px; margin-top:14px; }
+.admin-option-value { display:grid; grid-template-columns:1fr 1fr 150px auto; gap:10px; align-items:center; }
+.admin-option-actions, .admin-option-save { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:14px; }
+@media (max-width: 720px) { .admin-section-heading { flex-direction:column; } .admin-option-value { grid-template-columns:1fr 1fr; } .admin-option-value .admin-button { width:100%; } }

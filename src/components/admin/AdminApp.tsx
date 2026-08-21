@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import AdminAiAssistant from './AdminAiAssistant';
 import ProductModelAnalysis from './ProductModelAnalysis';
+import ProductOptionsEditor from './ProductOptionsEditor';
 import type { ModelAnalysis } from '../../lib/modelAnalysis';
 
 type Category = {
