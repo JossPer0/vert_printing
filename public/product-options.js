@@ -38,6 +38,30 @@ function readQuantity(product) {
   return quantity;
 }
 
+function showCartConfirmation(item) {
+  document.querySelector('.cart-modal-backdrop')?.remove();
+  const backdrop = document.createElement('div');
+  backdrop.className = 'cart-modal-backdrop';
+  backdrop.setAttribute('role', 'presentation');
+  backdrop.innerHTML = `<div class="cart-modal" role="dialog" aria-modal="true" aria-labelledby="cart-added-title" tabindex="-1">
+    <p class="section-kicker">Added to cart</p>
+    <h2 id="cart-added-title">${escapeHtml(item.name)} is in your cart.</h2>
+    <p>${Number(item.quantity) > 1 ? `${Number(item.quantity)} items have` : 'This item has'} been added. You can keep shopping or review your cart.</p>
+    <div class="cart-modal-actions"><button class="button secondary" type="button" data-cart-continue>Continue Shopping</button><a class="button primary" href="/cart/">Go to Cart</a></div>
+  </div>`;
+  const close = () => backdrop.remove();
+  backdrop.addEventListener('click', (event) => {
+    if (event.target === backdrop) close();
+  });
+  backdrop.querySelector('[data-cart-continue]')?.addEventListener('click', close);
+  document.addEventListener('keydown', function onKeydown(event) {
+    if (event.key !== 'Escape') return;
+    close();
+    document.removeEventListener('keydown', onKeydown);
+  });
+  document.body.append(backdrop);
+  backdrop.querySelector('.cart-modal')?.focus();
+}
 async function loadOptions() {
   if (!summary || !cta || !slug) return;
   try {
@@ -110,7 +134,7 @@ async function loadOptions() {
       if (existing) existing.quantity += item.quantity; else cart.push(item);
       localStorage.setItem(CART_KEY, JSON.stringify(cart));
       document.dispatchEvent(new CustomEvent('vert-cart-updated'));
-      window.location.href = '/cart/';
+      showCartConfirmation(item);
     });
   } catch {
     if (cta?.dataset.productAction) setButtonState(false, 'Options unavailable');

@@ -126,6 +126,17 @@ function ProductCard({
   </article>;
 }
 
+
+function CartConfirmationModal({ item, onClose }: { item: { name: string; quantity: number }; onClose: () => void }) {
+  return <div className="cart-modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="cart-modal" role="dialog" aria-modal="true" aria-labelledby="cart-added-title" tabIndex={-1} onClick={(event) => event.stopPropagation()}>
+      <p className="section-kicker">Added to cart</p>
+      <h2 id="cart-added-title">{item.name} is in your cart.</h2>
+      <p>{item.quantity > 1 ? `${item.quantity} items have` : 'This item has'} been added. You can keep shopping or review your cart.</p>
+      <div className="cart-modal-actions"><button className="button secondary" type="button" onClick={onClose}>Continue Shopping</button><a className="button primary" href="/cart/">Go to Cart</a></div>
+    </div>
+  </div>;
+}
 export default function ShopCatalogue() {
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -134,6 +145,7 @@ export default function ShopCatalogue() {
   const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
   const [productsWithOptions, setProductsWithOptions] = useState<string[]>([]);
   const [addedProductId, setAddedProductId] = useState('');
+  const [cartConfirmation, setCartConfirmation] = useState<{ name: string; quantity: number } | null>(null);
   const [activeCategory, setActiveCategory] = useState('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
@@ -286,6 +298,7 @@ export default function ShopCatalogue() {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
     document.dispatchEvent(new CustomEvent('vert-cart-updated'));
     setAddedProductId(product.id);
+    setCartConfirmation({ name: product.name, quantity });
     window.setTimeout(() => setAddedProductId((current) => current === product.id ? '' : current), 1300);
   }
 
@@ -293,7 +306,8 @@ export default function ShopCatalogue() {
   if (error) return <div className="shop-container"><div className="shop-empty"><h2>Shop unavailable</h2><p>{error}</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
   if (!products.length) return <div className="shop-container"><div className="shop-empty"><h2>Our online catalogue is being updated.</h2><p>Need something now? Tell us what you need and we'll put together a quote.</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
 
-  return <div className="shop-container">
+  return <>
+    <div className="shop-container">
     <div className="shop-controls" aria-label="Shop filters">
       {visibleCategories.length > 0 && <div className="shop-categories" aria-label="Product categories">
         <button className={activeCategory === 'all' ? 'active' : ''} type="button" aria-pressed={activeCategory === 'all'} onClick={() => setActiveCategory('all')}>All</button>
@@ -307,5 +321,7 @@ export default function ShopCatalogue() {
     </div>
 
     {filteredProducts.length ? <div className="shop-grid">{filteredProducts.map((product) => <ProductCard key={product.id} product={product} image={images[product.id]} imageUrl={imageUrls[product.id]} categoryName={categoryByProduct[product.id]?.name} hasOptions={productsWithOptionsSet.has(product.id)} added={addedProductId === product.id} onAddToCart={addProductToCart} />)}</div> : <div className="shop-empty"><h2>No products matched your search.</h2><p>Try another search or browse all products.</p><button className="button primary" type="button" onClick={() => { setSearch(''); setActiveCategory('all'); }}>View All Products</button></div>}
-  </div>;
+    </div>
+    {cartConfirmation && <CartConfirmationModal item={cartConfirmation} onClose={() => setCartConfirmation(null)} />}
+  </>;
 }

@@ -2546,6 +2546,57 @@ h3 {
     max-width: none;
   }
 }
+.cart-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(31, 36, 38, 0.48);
+}
+.cart-modal {
+  width: min(100%, 440px);
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 24px;
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(31, 36, 38, 0.24);
+}
+.cart-modal h2 {
+  margin: 0;
+  font-size: clamp(1.4rem, 4vw, 1.9rem);
+  line-height: 1.12;
+}
+.cart-modal p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.cart-modal .section-kicker {
+  color: var(--teal-dark);
+}
+.cart-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+@media (max-width: 520px) {
+  .cart-modal-backdrop {
+    align-items: end;
+    padding: 14px;
+  }
+  .cart-modal {
+    padding: 20px;
+  }
+  .cart-modal-actions .button {
+    width: 100%;
+  }
+}
 .cart-shell { padding:52px 0 88px; }
 .cart-heading { display:flex; justify-content:space-between; gap:24px; align-items:flex-end; margin-bottom:28px; }
 .cart-heading h1 { margin:0 0 10px; font-size:clamp(2rem, 4vw, 3.2rem); }
