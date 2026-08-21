@@ -11,5 +11,5 @@
 /gallery/ /#work 301
 /portfolio /#work 301
 /portfolio/ /#work 301
-/checkout /#quote 301
+/checkout /cart 301
 /my-account /#quote 301
