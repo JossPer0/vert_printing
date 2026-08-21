@@ -53,9 +53,9 @@ async function loadOptions() {
         const values = activeValues(group);
         const name = `option-${group.id}`;
         const required = group.is_required ? ' required' : '';
-        if (group.display_type === 'swatch') return `<fieldset class="product-option-group"><legend>${escapeHtml(group.name)}${group.is_required ? ' *' : ''}</legend><div class="product-option-swatches">${values.map((value) => `<label class="product-option-swatch"><input type="radio" name="${name}" value="${escapeHtml(value.value)}" data-option-label="${escapeHtml(group.name)}: ${escapeHtml(value.label)}" data-price-adjustment="${Number(value.price_adjustment) || 0}"${required}><span class="product-option-swatch-ui" style="--swatch-color:${/^#[0-9a-f]{6}$/i.test(value.metadata?.color || '') ? value.metadata.color : '#ec168c'}" title="${escapeHtml(value.label)}"><span class="product-option-swatch-dot"></span><span>${escapeHtml(value.label)}</span></span></label>`).join('')}</div></fieldset>`;
-        if (group.display_type === 'radio') return `<fieldset class="product-option-group"><legend>${escapeHtml(group.name)}${group.is_required ? ' *' : ''}</legend><div class="product-option-radioes">${values.map((value) => `<label><input type="radio" name="${name}" value="${escapeHtml(value.value)}" data-option-label="${escapeHtml(group.name)}: ${escapeHtml(value.label)}" data-price-adjustment="${Number(value.price_adjustment) || 0}"${required}>${escapeHtml(value.label)}</label>`).join('')}</div></fieldset>`;
-        return `<label class="product-option-select"><span>${escapeHtml(group.name)}${group.is_required ? ' *' : ''}</span><select name="${name}" data-option-label="${escapeHtml(group.name)}"${required}><option value="">Choose ${escapeHtml(group.name.toLowerCase())}</option>${values.map((value) => `<option value="${escapeHtml(value.value)}" data-option-value-label="${escapeHtml(value.label)}" data-price-adjustment="${Number(value.price_adjustment) || 0}">${escapeHtml(value.label)}${Number(value.price_adjustment) ? ` (${Number(value.price_adjustment) > 0 ? '+' : ''}${money(value.price_adjustment)})` : ''}</option>`).join('')}</select></label>`;
+        if (group.display_type === 'swatch') return `<fieldset class="product-option-group"><legend>${escapeHtml(group.name)}${group.is_required ? ' *' : ''}</legend><div class="product-option-swatches">${values.map((value) => `<label class="product-option-swatch"><input type="radio" name="${name}" value="${escapeHtml(value.value)}" data-option-label="${escapeHtml(group.name)}: ${escapeHtml(value.label)}" data-option-group-id="${escapeHtml(group.id)}" data-option-group-name="${escapeHtml(group.name)}" data-option-value-id="${escapeHtml(value.id)}" data-option-value-label="${escapeHtml(value.label)}" data-price-adjustment="${Number(value.price_adjustment) || 0}"${required}><span class="product-option-swatch-ui" style="--swatch-color:${/^#[0-9a-f]{6}$/i.test(value.metadata?.color || '') ? value.metadata.color : '#ec168c'}" title="${escapeHtml(value.label)}"><span class="product-option-swatch-dot"></span><span>${escapeHtml(value.label)}</span></span></label>`).join('')}</div></fieldset>`;
+        if (group.display_type === 'radio') return `<fieldset class="product-option-group"><legend>${escapeHtml(group.name)}${group.is_required ? ' *' : ''}</legend><div class="product-option-radioes">${values.map((value) => `<label><input type="radio" name="${name}" value="${escapeHtml(value.value)}" data-option-label="${escapeHtml(group.name)}: ${escapeHtml(value.label)}" data-option-group-id="${escapeHtml(group.id)}" data-option-group-name="${escapeHtml(group.name)}" data-option-value-id="${escapeHtml(value.id)}" data-option-value-label="${escapeHtml(value.label)}" data-price-adjustment="${Number(value.price_adjustment) || 0}"${required}>${escapeHtml(value.label)}</label>`).join('')}</div></fieldset>`;
+        return `<label class="product-option-select"><span>${escapeHtml(group.name)}${group.is_required ? ' *' : ''}</span><select name="${name}" data-option-label="${escapeHtml(group.name)}" data-option-group-id="${escapeHtml(group.id)}" data-option-group-name="${escapeHtml(group.name)}"${required}><option value="">Choose ${escapeHtml(group.name.toLowerCase())}</option>${values.map((value) => `<option value="${escapeHtml(value.value)}" data-option-value-id="${escapeHtml(value.id)}" data-option-value-label="${escapeHtml(value.label)}" data-price-adjustment="${Number(value.price_adjustment) || 0}">${escapeHtml(value.label)}${Number(value.price_adjustment) ? ` (${Number(value.price_adjustment) > 0 ? '+' : ''}${money(value.price_adjustment)})` : ''}</option>`).join('')}</select></label>`;
       }).join('')}`;
       cta.before(root);
       cta.classList.add('product-request-button');
@@ -81,7 +81,20 @@ async function loadOptions() {
       if (cta.disabled) return;
       const invalid = summary.querySelector('.product-options :invalid');
       if (invalid) { invalid.focus(); return; }
-      const options = selectedControls().map((control) => ({ label: control.dataset.optionLabel || `${control.closest('select')?.dataset.optionLabel}: ${control.textContent}`, value: control.value, priceAdjustment: Number(control.dataset.priceAdjustment || 0) }));
+            const options = selectedControls().map((control) => {
+        const select = control.closest('select');
+        const groupName = control.dataset.optionGroupName || select?.dataset.optionGroupName || select?.dataset.optionLabel || '';
+        const valueLabel = control.dataset.optionValueLabel || control.textContent?.trim() || '';
+        return {
+          groupId: control.dataset.optionGroupId || select?.dataset.optionGroupId || '',
+          groupName,
+          valueId: control.dataset.optionValueId || '',
+          value: control.value,
+          valueLabel,
+          label: control.dataset.optionLabel || `${groupName}: ${valueLabel}`,
+          priceAdjustment: Number(control.dataset.priceAdjustment || 0),
+        };
+      });
       const item = { id: product.id, name: product.name, slug: product.slug, price: Number(product.base_price || 0) + options.reduce((total, option) => total + option.priceAdjustment, 0), quantity: 1, options };
       const cart = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
       const existing = cart.find((current) => current.id === item.id && JSON.stringify(current.options) === JSON.stringify(item.options));
