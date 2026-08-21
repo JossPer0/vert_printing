@@ -9,6 +9,8 @@ type Product = {
   pricing_mode: string;
   base_price: number | null;
   requires_artwork: boolean;
+  minimum_quantity: number | null;
+  maximum_quantity: number | null;
 };
 
 type ProductImage = {
@@ -29,48 +31,97 @@ type ProductCategory = {
   category_id: string;
 };
 
+type OptionGroup = {
+  product_id: string;
+  option_values?: { is_active: boolean | null }[] | null;
+};
+
+const CART_KEY = 'vert-cart-v1';
+
 function formatMoney(value: number) {
   return `R${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function productPrice(product: Product) {
-  if (product.pricing_mode === 'quote_only' || product.base_price === null) return 'Custom pricing';
-  const price = formatMoney(product.base_price);
-  return product.pricing_mode === 'from_price' || product.product_type === 'configurable' ? `From ${price}` : price;
+function isQuoteOnly(product: Product) {
+  return product.pricing_mode === 'quote_only' || product.product_type === 'quote_only' || product.base_price === null;
 }
 
-function productCta(product: Product) {
-  if (product.pricing_mode === 'quote_only' || product.product_type === 'quote_only') return 'Request a Quote';
-  if (product.product_type === 'configurable' || product.pricing_mode === 'from_price') return 'Choose Options';
-  return 'View Product';
+function isConfigurable(product: Product) {
+  return product.product_type === 'configurable' || product.pricing_mode === 'from_price';
+}
+
+function canAddDirectly(product: Product, hasOptions: boolean) {
+  return !isQuoteOnly(product) && !isConfigurable(product) && !hasOptions;
+}
+
+function productPrice(product: Product) {
+  if (isQuoteOnly(product)) return 'Custom pricing';
+  const price = formatMoney(product.base_price || 0);
+  return isConfigurable(product) ? `From ${price}` : price;
+}
+
+function productCta(product: Product, hasOptions: boolean) {
+  if (isQuoteOnly(product)) return 'Request a Quote';
+  if (isConfigurable(product) || hasOptions) return 'Choose Options';
+  return 'Add to Cart';
 }
 
 function productHref(product: Product) {
-  if (product.pricing_mode === 'quote_only' || product.product_type === 'quote_only') return `/?product=${encodeURIComponent(product.name)}#quote`;
+  if (isQuoteOnly(product)) return `/?product=${encodeURIComponent(product.name)}#quote`;
   return `/product/${product.slug}`;
 }
 
-function productSupportText(product: Product) {
-  if (product.pricing_mode === 'quote_only' || product.product_type === 'quote_only') return 'Made to your requirements';
-  if (product.product_type === 'configurable') return 'Choose options before ordering';
-  if (product.requires_artwork) return 'Artwork can be supplied after enquiry';
-  return 'Available for online enquiry';
+function productSupportText(product: Product, hasOptions: boolean) {
+  if (isQuoteOnly(product)) return 'Made to your requirements';
+  if (isConfigurable(product) || hasOptions) return 'Choose options before ordering';
+  if (product.requires_artwork) return 'Artwork can be supplied after ordering';
+  return 'Ready to add to cart';
 }
 
-function ProductCard({ product, image, imageUrl, categoryName }: { product: Product; image?: ProductImage; imageUrl?: string; categoryName?: string }) {
+function readCart() {
+  try {
+    const cart = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+    return Array.isArray(cart) ? cart : [];
+  } catch {
+    return [];
+  }
+}
+
+function ProductCard({
+  product,
+  image,
+  imageUrl,
+  categoryName,
+  hasOptions,
+  added,
+  onAddToCart,
+}: {
+  product: Product;
+  image?: ProductImage;
+  imageUrl?: string;
+  categoryName?: string;
+  hasOptions: boolean;
+  added: boolean;
+  onAddToCart: (product: Product) => void;
+}) {
+  const directAdd = canAddDirectly(product, hasOptions);
+  const cta = productCta(product, hasOptions);
+
   return <article className="shop-card">
-    <a className="shop-card-image" href={productHref(product)} aria-label={`${productCta(product)} for ${product.name}`}>
+    <a className="shop-card-image" href={productHref(product)} aria-label={`${cta} for ${product.name}`}>
       {imageUrl ? <img src={imageUrl} alt={image?.alt_text || product.name} loading="lazy" /> : <span>No image available</span>}
     </a>
     <div className="shop-card-body">
       <div>
         {categoryName && <p>{categoryName}</p>}
         <h2>{product.name}</h2>
-        <span className="shop-support">{productSupportText(product)}</span>
+        <span className="shop-support">{productSupportText(product, hasOptions)}</span>
       </div>
       <strong>{productPrice(product)}</strong>
       {product.requires_artwork && <span className="shop-note">Artwork required</span>}
-      <a className="button primary" href={productHref(product)}>{productCta(product)}</a>
+      {directAdd
+        ? <button className={`button primary${added ? ' is-added' : ''}`} type="button" onClick={() => onAddToCart(product)}>{added ? 'Added to Cart' : cta}</button>
+        : <a className="button primary" href={productHref(product)}>{cta}</a>}
     </div>
   </article>;
 }
@@ -81,6 +132,8 @@ export default function ShopCatalogue() {
   const [images, setImages] = useState<Record<string, ProductImage>>({});
   const [categories, setCategories] = useState<Category[]>([]);
   const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [productsWithOptions, setProductsWithOptions] = useState<string[]>([]);
+  const [addedProductId, setAddedProductId] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
@@ -101,7 +154,7 @@ export default function ShopCatalogue() {
         const [productResult, categoryResult, productCategoryResult] = await Promise.all([
           client
             .from('products')
-            .select('id,name,slug,product_type,pricing_mode,base_price,requires_artwork')
+            .select('id,name,slug,product_type,pricing_mode,base_price,requires_artwork,minimum_quantity,maximum_quantity')
             .eq('is_active', true)
             .eq('is_published', true)
             .is('archived_at', null)
@@ -117,11 +170,18 @@ export default function ShopCatalogue() {
         setProductCategories(productCategoryResult.data || []);
 
         if (visibleProducts.length) {
-          const imageResult = await client
-            .from('product_images')
-            .select('product_id,storage_path,alt_text,sort_order')
-            .in('product_id', visibleProducts.map((product) => product.id))
-            .order('sort_order');
+          const productIds = visibleProducts.map((product) => product.id);
+          const [imageResult, optionGroupResult] = await Promise.all([
+            client
+              .from('product_images')
+              .select('product_id,storage_path,alt_text,sort_order')
+              .in('product_id', productIds)
+              .order('sort_order'),
+            client
+              .from('option_groups')
+              .select('product_id,option_values(is_active)')
+              .in('product_id', productIds),
+          ]);
 
           if (imageResult.error) throw new Error('images');
           const firstImages: Record<string, ProductImage> = {};
@@ -129,6 +189,19 @@ export default function ShopCatalogue() {
             if (!firstImages[image.product_id]) firstImages[image.product_id] = image;
           }
           setImages(firstImages);
+
+          if (optionGroupResult.error) {
+            setProductsWithOptions(productIds);
+          } else {
+            const optionRows = (optionGroupResult.data || []) as OptionGroup[];
+            const withOptions = optionRows
+              .filter((group) => (group.option_values || []).some((value) => value.is_active !== false))
+              .map((group) => group.product_id);
+            setProductsWithOptions([...new Set(withOptions)]);
+          }
+        } else {
+          setImages({});
+          setProductsWithOptions([]);
         }
       } catch {
         setError("We couldn't load the shop right now. Please try again shortly or request a quote.");
@@ -148,6 +221,7 @@ export default function ShopCatalogue() {
     ]));
   }, [images, supabase]);
 
+  const productsWithOptionsSet = useMemo(() => new Set(productsWithOptions), [productsWithOptions]);
   const categoryById = useMemo(() => Object.fromEntries(categories.map((category) => [category.id, category])), [categories]);
   const visibleProductIds = useMemo(() => new Set(products.map((product) => product.id)), [products]);
 
@@ -194,6 +268,27 @@ export default function ShopCatalogue() {
 
   const hasActiveFilters = activeCategory !== 'all' || search.trim().length > 0;
 
+  function addProductToCart(product: Product) {
+    if (!canAddDirectly(product, productsWithOptionsSet.has(product.id))) return;
+    const quantity = Math.max(1, Number(product.minimum_quantity || 1));
+    const item = {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      price: Number(product.base_price || 0),
+      quantity,
+      options: [],
+    };
+    const cart = readCart();
+    const existing = cart.find((current) => current.id === item.id && Array.isArray(current.options) && current.options.length === 0);
+    if (existing) existing.quantity = Math.max(1, Number(existing.quantity || 1)) + quantity;
+    else cart.push(item);
+    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    document.dispatchEvent(new CustomEvent('vert-cart-updated'));
+    setAddedProductId(product.id);
+    window.setTimeout(() => setAddedProductId((current) => current === product.id ? '' : current), 1300);
+  }
+
   if (loading) return <div className="shop-container"><div className="shop-skeleton-grid"><span></span><span></span><span></span></div></div>;
   if (error) return <div className="shop-container"><div className="shop-empty"><h2>Shop unavailable</h2><p>{error}</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
   if (!products.length) return <div className="shop-container"><div className="shop-empty"><h2>Our online catalogue is being updated.</h2><p>Need something now? Tell us what you need and we'll put together a quote.</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
@@ -211,6 +306,6 @@ export default function ShopCatalogue() {
       </div>
     </div>
 
-    {filteredProducts.length ? <div className="shop-grid">{filteredProducts.map((product) => <ProductCard key={product.id} product={product} image={images[product.id]} imageUrl={imageUrls[product.id]} categoryName={categoryByProduct[product.id]?.name} />)}</div> : <div className="shop-empty"><h2>No products matched your search.</h2><p>Try another search or browse all products.</p><button className="button primary" type="button" onClick={() => { setSearch(''); setActiveCategory('all'); }}>View All Products</button></div>}
+    {filteredProducts.length ? <div className="shop-grid">{filteredProducts.map((product) => <ProductCard key={product.id} product={product} image={images[product.id]} imageUrl={imageUrls[product.id]} categoryName={categoryByProduct[product.id]?.name} hasOptions={productsWithOptionsSet.has(product.id)} added={addedProductId === product.id} onAddToCart={addProductToCart} />)}</div> : <div className="shop-empty"><h2>No products matched your search.</h2><p>Try another search or browse all products.</p><button className="button primary" type="button" onClick={() => { setSearch(''); setActiveCategory('all'); }}>View All Products</button></div>}
   </div>;
 }

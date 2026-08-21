@@ -80,6 +80,13 @@ function renderProductCta(product, quoteHref, cta) {
   const checkingLabel = needsConfiguration ? 'Choose options first' : 'Checking options...';
   return `<button class="button primary" data-product-name="${productName}" type="button" data-product-action="cart" disabled>${checkingLabel}</button>`;
 }
+function renderQuantityControl(product) {
+  if (product.pricing_mode === 'quote_only' || product.product_type === 'quote_only') return '';
+  const min = Math.max(1, Number(product.minimum_quantity || 1));
+  const max = Number(product.maximum_quantity || 0);
+  const maxAttr = max > 0 ? ` max="${max}"` : '';
+  return `<label class="product-quantity-control" for="product-quantity"><span>Quantity</span><input id="product-quantity" type="number" inputmode="numeric" min="${min}"${maxAttr} value="${min}" /></label>`;
+}
 function pageShell({ title, description, canonical, body, structuredData = '' }) {
   return `<!doctype html>
 <html lang="en">
@@ -134,12 +141,12 @@ export async function onRequestGet({ env, params }) {
   try {
     products = await supabaseGet(
       env,
-      `products?select=id,name,slug,product_type,pricing_mode,base_price,requires_artwork,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information,seo_title,seo_description&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&is_published=eq.true&archived_at=is.null&limit=1`,
+      `products?select=id,name,slug,product_type,pricing_mode,base_price,requires_artwork,minimum_quantity,maximum_quantity,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information,seo_title,seo_description&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&is_published=eq.true&archived_at=is.null&limit=1`,
     );
   } catch {
     products = await supabaseGet(
       env,
-      `products?select=id,name,slug,product_type,pricing_mode,base_price,requires_artwork&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&is_published=eq.true&archived_at=is.null&limit=1`,
+      `products?select=id,name,slug,product_type,pricing_mode,base_price,requires_artwork,minimum_quantity,maximum_quantity&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&is_published=eq.true&archived_at=is.null&limit=1`,
     );
   }
 
@@ -195,6 +202,7 @@ export async function onRequestGet({ env, params }) {
         <strong>${escapeHtml(price)}</strong>
         ${specs.slice(0, 4).length ? `<div class="product-summary-specs">${renderDefinitionList(specs.slice(0, 4))}</div>` : ''}
         ${product.requires_artwork ? '<div class="product-info-note"><strong>Artwork</strong><span>For best print quality, vector artwork is preferred. If you are unsure, send what you have and we will check it before production.</span></div>' : ''}
+        ${renderQuantityControl(product)}
         ${renderProductCta(product, quoteHref, cta)}
       </div>
     </div>

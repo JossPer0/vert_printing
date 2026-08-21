@@ -28,6 +28,15 @@ function setButtonState(enabled, text = 'Add to Cart') {
   if (enabled) cta.removeAttribute('disabled');
   else cta.setAttribute('disabled', 'disabled');
 }
+function readQuantity(product) {
+  const input = document.querySelector('#product-quantity');
+  const min = Math.max(1, Number(product.minimum_quantity || input?.min || 1));
+  const max = Number(product.maximum_quantity || input?.max || 0);
+  let quantity = Math.max(min, Number.parseInt(input?.value || String(min), 10) || min);
+  if (max > 0) quantity = Math.min(max, quantity);
+  if (input) input.value = String(quantity);
+  return quantity;
+}
 
 async function loadOptions() {
   if (!summary || !cta || !slug) return;
@@ -35,7 +44,7 @@ async function loadOptions() {
     const config = await fetch('/api/config', { cache: 'no-store' }).then((response) => response.json());
     if (!config.supabaseUrl || !config.supabaseAnonKey) return;
     const headers = { apikey: config.supabaseAnonKey, Authorization: `Bearer ${config.supabaseAnonKey}` };
-    const products = await fetch(`${config.supabaseUrl}/rest/v1/products?select=id,name,slug,product_type,pricing_mode,base_price&slug=eq.${encodeURIComponent(slug)}&limit=1`, { headers }).then((response) => response.json());
+    const products = await fetch(`${config.supabaseUrl}/rest/v1/products?select=id,name,slug,product_type,pricing_mode,base_price,minimum_quantity,maximum_quantity&slug=eq.${encodeURIComponent(slug)}&limit=1`, { headers }).then((response) => response.json());
     const product = products[0];
     if (!product || isQuoteOnly(product)) return;
 
@@ -81,7 +90,7 @@ async function loadOptions() {
       if (cta.disabled) return;
       const invalid = summary.querySelector('.product-options :invalid');
       if (invalid) { invalid.focus(); return; }
-            const options = selectedControls().map((control) => {
+      const options = selectedControls().map((control) => {
         const select = control.closest('select');
         const groupName = control.dataset.optionGroupName || select?.dataset.optionGroupName || select?.dataset.optionLabel || '';
         const valueLabel = control.dataset.optionValueLabel || control.textContent?.trim() || '';
@@ -95,11 +104,12 @@ async function loadOptions() {
           priceAdjustment: Number(control.dataset.priceAdjustment || 0),
         };
       });
-      const item = { id: product.id, name: product.name, slug: product.slug, price: Number(product.base_price || 0) + options.reduce((total, option) => total + option.priceAdjustment, 0), quantity: 1, options };
+      const item = { id: product.id, name: product.name, slug: product.slug, price: Number(product.base_price || 0) + options.reduce((total, option) => total + option.priceAdjustment, 0), quantity: readQuantity(product), options };
       const cart = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
       const existing = cart.find((current) => current.id === item.id && JSON.stringify(current.options) === JSON.stringify(item.options));
-      if (existing) existing.quantity += 1; else cart.push(item);
+      if (existing) existing.quantity += item.quantity; else cart.push(item);
       localStorage.setItem(CART_KEY, JSON.stringify(cart));
+      document.dispatchEvent(new CustomEvent('vert-cart-updated'));
       window.location.href = '/cart';
     });
   } catch {
