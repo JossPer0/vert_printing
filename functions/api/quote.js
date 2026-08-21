@@ -36,6 +36,7 @@ function buildText(data) {
     `Product or item: ${data.product || ""}`,
     `Quantity: ${data.quantity || ""}`,
     `Required date: ${data.required_date || ""}`,
+    `Artwork status: ${data.artwork_status || ""}`,
     "",
     "Project details:",
     data.details || "",
@@ -53,6 +54,7 @@ function buildHtml(data) {
     ["Product or item", data.product],
     ["Quantity", data.quantity],
     ["Required date", data.required_date],
+    ["Artwork status", data.artwork_status],
   ]
     .map(([label, value]) => `<tr><th align="left" style="padding:8px;border-bottom:1px solid #eee;">${escapeHtml(label)}</th><td style="padding:8px;border-bottom:1px solid #eee;">${escapeHtml(value)}</td></tr>`)
     .join("");
