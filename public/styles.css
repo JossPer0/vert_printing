@@ -2437,3 +2437,4 @@ h3 {
 .admin-option-value input:focus { outline:3px solid rgba(236,22,140,.18); border-color:var(--admin-pink); }
 .admin-option-value .admin-button { min-height:42px; border-radius:8px; padding:10px 15px; font:inherit; font-weight:900; }
 .admin-option-actions .admin-button, .admin-option-save .admin-button { min-height:42px; border-radius:8px; padding:10px 15px; font:inherit; font-weight:900; }
+.admin-section-heading > .admin-button { align-self: center; }
