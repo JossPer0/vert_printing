@@ -2569,6 +2569,8 @@ h3 {
 .cart-summary h2 { margin:0; font-size:1.1rem; }
 .cart-summary > div { display:flex; justify-content:space-between; gap:20px; padding-bottom:16px; border-bottom:1px solid var(--line); }
 .cart-summary p { margin:0; color:var(--muted); font-size:.9rem; line-height:1.5; }
+.cart-clear { justify-self:start; border:0; padding:0; color:#b63838; background:transparent; font:inherit; font-size:.9rem; font-weight:900; cursor:pointer; }
+.cart-clear:hover, .cart-clear:focus-visible { color:#8f2525; text-decoration:underline; }
 .cart-checkout { display:grid; gap:18px; margin-top:24px; padding:22px; }
 .cart-form-heading h2 { margin:0 0 8px; font-size:1.45rem; }
 .cart-form-heading p { margin:0; color:var(--muted); }

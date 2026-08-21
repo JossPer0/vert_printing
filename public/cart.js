@@ -59,7 +59,7 @@ function render() {
       <aside class="cart-summary">
         <h2>Order summary</h2>
         <div><span>Subtotal</span><strong>${money(total)}</strong></div>
-        <p>Totals are checked again before the order is saved. Payment is not taken online yet.</p>
+        <p>Totals are checked again before the order is saved. Payment is not taken online yet.</p><button class="text-button cart-clear" type="button">Clear cart</button>
       </aside>
     </div>
     <form class="cart-checkout" id="cart-checkout-form">
@@ -96,6 +96,10 @@ function render() {
     saveCart(next);
     render();
   }));
+  root.querySelector('.cart-clear')?.addEventListener('click', () => {
+    saveCart([]);
+    render();
+  });
   root.querySelector('#cart-checkout-form')?.addEventListener('submit', submitOrder);
 }
 

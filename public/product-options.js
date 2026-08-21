@@ -110,7 +110,7 @@ async function loadOptions() {
       if (existing) existing.quantity += item.quantity; else cart.push(item);
       localStorage.setItem(CART_KEY, JSON.stringify(cart));
       document.dispatchEvent(new CustomEvent('vert-cart-updated'));
-      window.location.href = '/cart';
+      window.location.href = '/cart/';
     });
   } catch {
     if (cta?.dataset.productAction) setButtonState(false, 'Options unavailable');

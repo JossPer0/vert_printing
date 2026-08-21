@@ -111,7 +111,7 @@ function pageShell({ title, description, canonical, body, structuredData = '' })
     <header class="site-header">
       <a class="brand" href="/" aria-label="Vert Printing home"><img class="brand-logo" src="/assets/vert_logo_header.png" alt="Vert Printing" width="1255" height="570" /><span><strong>Vert Printing</strong><small>Kloof, Durban</small></span></a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
-      <nav id="site-nav" class="site-nav" aria-label="Main navigation"><a href="/#services">Services</a><a href="/shop">Shop</a><a href="/#work">Our Work</a><a href="/#story">About</a><a href="/#quote">Get a Quote</a><a class="nav-cart-link" href="/cart" data-cart-link>Cart <span data-cart-count hidden>0</span></a></nav>
+      <nav id="site-nav" class="site-nav" aria-label="Main navigation"><a href="/#services">Services</a><a href="/shop">Shop</a><a href="/#work">Our Work</a><a href="/#story">About</a><a href="/#quote">Get a Quote</a><a class="nav-cart-link" href="/cart/" data-cart-link>Cart <span data-cart-count hidden>0</span></a></nav>
     </header>
     <main>${body}</main>
     <footer class="site-footer"><p>&copy; 2026 Vert Printing. All rights reserved.</p><div><a href="https://www.facebook.com/vertprinting">Facebook</a><a href="https://www.instagram.com/vertprinting">Instagram</a><a href="https://wa.me/27662456511">WhatsApp</a></div></footer>
