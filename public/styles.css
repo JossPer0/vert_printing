@@ -2346,6 +2346,16 @@ h3 {
   margin-top: 22px;
 }
 
+
+.cart-modal-actions .button.secondary {
+  border-color: var(--line);
+  color: var(--ink);
+  background: #fff;
+}
+.cart-modal-actions .button.secondary:hover, .cart-modal-actions .button.secondary:focus-visible {
+  color: var(--ink);
+  background: var(--paper);
+}
 @media (max-width: 520px) {
   .admin-modal-actions {
     flex-direction: column-reverse;
@@ -2643,3 +2653,13 @@ h3 {
 .cart-actions { display:flex; flex-wrap:wrap; gap:12px; }
 @media (max-width:900px) { .cart-layout { grid-template-columns:1fr; } .cart-summary { position:static; } }
 @media (max-width:720px) { .cart-shell { padding-top:34px; } .cart-heading { display:grid; gap:12px; align-items:start; } .cart-item { display:grid; gap:12px; } .cart-item > strong { justify-self:start; } .cart-form-grid { grid-template-columns:1fr; } .cart-checkout { padding:18px; } }
+
+.cart-modal .button.secondary {
+  border-color: var(--line);
+  color: var(--ink);
+  background: #fff;
+}
+.cart-modal .button.secondary:hover, .cart-modal .button.secondary:focus-visible {
+  color: var(--ink);
+  background: var(--paper);
+}
