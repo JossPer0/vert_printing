@@ -77,9 +77,6 @@ export default function ProductOptionsEditor({ productId, productType, supabase 
           const { error: valueError } = await supabase.from('option_values').upsert({ id: value.id, option_group_id: saved.id, label: value.label.trim(), value: makeStoredValue(value.label), price_adjustment: Number(value.price_adjustment) || 0, sort_order: valueIndex, is_active: value.is_active, metadata: value.metadata || {} }, { onConflict: 'id' });
           if (valueError) throw valueError;
         }
-        const keptValueIds = validValues.map((value) => value.id).filter(Boolean);
-        if (keptValueIds.length) await supabase.from('option_values').delete().eq('option_group_id', saved.id).not('id', 'in', `(${keptValueIds.join(',')})`);
-        else await supabase.from('option_values').delete().eq('option_group_id', saved.id);
       }
       const stale = (existing || []).map((row) => row.id).filter((id) => !keep.has(id));
       if (stale.length) await supabase.from('option_groups').delete().in('id', stale);
