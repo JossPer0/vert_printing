@@ -1698,6 +1698,162 @@ h3 {
   background: #eeeeec;
 }
 
+.admin-badge.warning {
+  color: #8b5200;
+  background: #fff2cc;
+}
+
+.admin-order-metrics strong {
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
+}
+
+.admin-orders-list {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-order-card {
+  display: grid;
+  gap: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  padding: 22px;
+  background: var(--admin-surface);
+  box-shadow: 0 10px 28px rgba(31, 36, 38, 0.05);
+}
+
+.admin-order-summary,
+.admin-order-grid,
+.admin-order-actions {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-order-summary {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  border-bottom: 1px solid var(--admin-border);
+  padding-bottom: 16px;
+}
+
+.admin-order-summary h2 {
+  margin: 4px 0;
+  font-size: 1.28rem;
+}
+
+.admin-order-summary p,
+.admin-order-grid p,
+.admin-order-note p,
+.admin-order-actions small {
+  margin: 0;
+  color: var(--admin-muted);
+}
+
+.admin-order-number {
+  color: var(--admin-teal);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-order-total {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  text-align: right;
+}
+
+.admin-order-total strong {
+  font-size: 1.25rem;
+}
+
+.admin-order-grid {
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+}
+
+.admin-order-grid h3,
+.admin-order-note h3 {
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-order-grid a {
+  color: var(--admin-text);
+  text-decoration-color: rgba(236, 22, 140, 0.45);
+  text-underline-offset: 3px;
+}
+
+.admin-order-grid a:hover {
+  color: var(--admin-pink);
+}
+
+.admin-order-items {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-order-items > div {
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfaf7;
+}
+
+.admin-order-items strong,
+.admin-order-items span {
+  display: block;
+}
+
+.admin-order-items ul {
+  margin: 6px 0 6px 18px;
+  padding: 0;
+  color: var(--admin-muted);
+}
+
+.admin-order-items span {
+  color: var(--admin-muted);
+  font-size: 0.88rem;
+}
+
+.admin-order-note {
+  border-left: 4px solid var(--admin-teal);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #f7fbfa;
+}
+
+.admin-order-note p {
+  white-space: pre-wrap;
+}
+
+.admin-order-actions {
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  align-items: end;
+  border-top: 1px solid var(--admin-border);
+  padding-top: 16px;
+}
+
+.admin-order-actions .admin-field {
+  margin-bottom: 0;
+}
+
+.admin-order-actions > div {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  text-align: right;
+}
+
+.admin-order-actions > div > span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
 .admin-upload {
   position: relative;
   display: inline-flex;
@@ -1777,10 +1933,21 @@ h3 {
   place-items: center;
   min-height: 100vh;
   padding: 24px;
+  overflow-x: hidden;
 }
 
 .admin-login {
   width: min(480px, 100%);
+}
+
+.admin-auth-wrap .admin-panel {
+  width: min(480px, calc(100vw - 48px));
+  max-width: 100%;
+}
+
+.admin-auth-wrap .admin-muted,
+.admin-auth-wrap .admin-notice {
+  overflow-wrap: anywhere;
 }
 
 .admin-login-brand {
@@ -1904,14 +2071,45 @@ h3 {
 }
 
 @media (max-width: 640px) {
+  .admin-auth-wrap,
+  .admin-loading {
+    padding: 16px;
+  }
+
+  .admin-auth-wrap .admin-panel {
+    width: min(100%, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+  }
+
+  .admin-auth-wrap .admin-muted {
+    max-width: 26ch;
+  }
+
   .admin-content {
     width: min(100% - 24px, 1180px);
     padding-top: 22px;
   }
 
   .admin-topbar {
-    align-items: flex-start;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  .admin-topbar div {
+    min-width: 0;
+  }
+
+  .admin-topbar .admin-button {
+    min-height: 40px;
+    padding: 8px 10px;
+    white-space: nowrap;
+  }
+
+  .admin-topbar > .admin-button.secondary {
+    display: none;
   }
 
   .admin-page-head {
@@ -1937,17 +2135,33 @@ h3 {
   .admin-card-wide,
   .admin-field,
   .admin-field-grid,
-  .admin-spec-row {
+  .admin-spec-row,
+  .admin-order-summary,
+  .admin-order-grid,
+  .admin-order-actions {
     min-width: 0;
   }
 
   .admin-field-grid,
-  .admin-spec-row {
+  .admin-spec-row,
+  .admin-order-summary,
+  .admin-order-grid,
+  .admin-order-actions {
     grid-template-columns: 1fr;
   }
 
   .admin-spec-row .admin-button {
     width: 100%;
+  }
+
+  .admin-order-card {
+    padding: 16px;
+  }
+
+  .admin-order-total,
+  .admin-order-actions > div {
+    justify-items: start;
+    text-align: left;
   }
 }
 
@@ -3045,5 +3259,17 @@ h3 {
 .cart-empty h1, .cart-confirmation h1 { margin:0 0 12px; }
 .cart-empty p, .cart-confirmation p { margin:0 0 18px; color:var(--muted); line-height:1.6; }
 .cart-actions { display:flex; flex-wrap:wrap; gap:12px; }
+.cart-empty h1,
+.cart-confirmation h1 {
+  max-width: 12ch;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+.cart-empty p,
+.cart-confirmation p {
+  max-width: 52ch;
+  overflow-wrap: anywhere;
+}
 @media (max-width:900px) { .cart-layout { grid-template-columns:1fr; } .cart-summary { position:static; } }
-@media (max-width:720px) { .cart-shell { padding-top:34px; } .cart-heading { display:grid; gap:12px; align-items:start; } .cart-item { display:grid; gap:12px; } .cart-item > strong { justify-self:start; } .cart-form-grid { grid-template-columns:1fr; } .cart-checkout { padding:18px; } }
+@media (max-width:720px) { .cart-shell { padding-top:34px; } .cart-heading { display:grid; gap:12px; align-items:start; } .cart-item { display:grid; gap:12px; } .cart-item > strong { justify-self:start; } .cart-form-grid { grid-template-columns:1fr; } .cart-checkout { padding:18px; } .cart-empty, .cart-confirmation { padding:24px 20px; } .cart-empty p, .cart-confirmation p { max-width:28ch; } }

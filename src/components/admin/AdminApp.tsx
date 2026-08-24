@@ -61,6 +61,45 @@ type ProductSpecification = {
   sort_order: number;
 };
 
+type OrderStatus = 'new' | 'awaiting_artwork' | 'awaiting_approval' | 'in_production' | 'ready' | 'shipped' | 'completed' | 'cancelled';
+
+type Order = {
+  id: string;
+  order_number: string;
+  status: OrderStatus;
+  payment_status: string;
+  fulfilment_method: string;
+  customer_email: string;
+  customer_phone: string;
+  customer_name: string;
+  company_name: string | null;
+  grand_total: number;
+  currency: string;
+  customer_note: string | null;
+  internal_note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type OrderItemOption = {
+  label?: string;
+  group_name?: string;
+  value?: string;
+  price_adjustment?: number;
+};
+
+type OrderItem = {
+  id: string;
+  order_id: string;
+  product_name_snapshot: string;
+  sku_snapshot: string | null;
+  options_snapshot: OrderItemOption[] | null;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  requires_artwork: boolean;
+};
+
 type ProductInfoState = {
   short_description: string;
   description: string;
@@ -157,7 +196,22 @@ type AiRequest = {
 
 type Notice = { type: 'info' | 'success' | 'error'; text: string } | null;
 
-type View = 'dashboard' | 'products' | 'new-product' | 'edit-product' | 'categories';
+type View = 'dashboard' | 'products' | 'new-product' | 'edit-product' | 'categories' | 'orders';
+
+const ORDER_STATUSES: { value: OrderStatus; label: string; tone: 'success' | 'neutral' | 'warning' }[] = [
+  { value: 'new', label: 'New', tone: 'warning' },
+  { value: 'awaiting_artwork', label: 'Awaiting artwork', tone: 'warning' },
+  { value: 'awaiting_approval', label: 'Awaiting approval', tone: 'warning' },
+  { value: 'in_production', label: 'In production', tone: 'neutral' },
+  { value: 'ready', label: 'Ready', tone: 'success' },
+  { value: 'shipped', label: 'Shipped', tone: 'success' },
+  { value: 'completed', label: 'Complete', tone: 'success' },
+  { value: 'cancelled', label: 'Cancelled', tone: 'neutral' },
+];
+
+const titleCase = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+const statusLabel = (status: string) => ORDER_STATUSES.find((item) => item.value === status)?.label || titleCase(status);
+const statusTone = (status: string) => ORDER_STATUSES.find((item) => item.value === status)?.tone || 'neutral';
 
 const slugify = (value: string) =>
   value
@@ -170,6 +224,9 @@ const formatMoney = (value: number | null) => {
   if (value === null || Number.isNaN(value)) return 'Quote';
   return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(value);
 };
+
+const formatDateTime = (value: string) =>
+  new Intl.DateTimeFormat('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 
 const friendlyError = (message?: string) => {
   if (!message) return "We couldn't complete that action. Please try again.";
@@ -219,6 +276,8 @@ export default function AdminApp() {
   const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
   const [productSpecifications, setProductSpecifications] = useState<Record<string, ProductSpecification[]>>({});
   const [productModelAnalysis, setProductModelAnalysis] = useState<Record<string, ModelAnalysis>>({});
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [orderItems, setOrderItems] = useState<Record<string, OrderItem[]>>({});
   const [categoryName, setCategoryName] = useState('');
   const [categorySlug, setCategorySlug] = useState('');
   const [productName, setProductName] = useState('');
@@ -243,6 +302,7 @@ export default function AdminApp() {
     if (path === '/admin/products' && new URLSearchParams(window.location.search).has('edit')) return 'edit-product';
     if (path === '/admin/products') return 'products';
     if (path === '/admin/categories') return 'categories';
+    if (path === '/admin/orders') return 'orders';
     return 'dashboard';
   })();
 
@@ -254,6 +314,7 @@ export default function AdminApp() {
     : '';
   const publishedCount = products.filter((product) => product.is_published).length;
   const draftCount = products.length - publishedCount;
+  const newOrderCount = orders.filter((order) => order.status === 'new').length;
 
   async function handleAppError(message?: string) {
     const friendly = friendlyError(message);
@@ -267,6 +328,8 @@ export default function AdminApp() {
       setProductCategories([]);
       setProductSpecifications({});
       setProductModelAnalysis({});
+      setOrders([]);
+      setOrderItems({});
       setImageAltText('');
     }
   }
@@ -274,13 +337,14 @@ export default function AdminApp() {
   async function loadData(client = supabase) {
     if (!client) return;
     setBusy('loading');
-    let [categoryResult, productResult, imageResult, productCategoryResult, specificationResult, modelResult] = await Promise.all([
+    let [categoryResult, productResult, imageResult, productCategoryResult, specificationResult, modelResult, orderResult] = await Promise.all([
       client.from('categories').select('id,name,slug,is_active,sort_order').order('sort_order').order('name'),
       client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information,seo_title,seo_description,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
       client.from('product_images').select('id,product_id,storage_path,alt_text,sort_order').order('sort_order'),
       client.from('product_categories').select('product_id,category_id'),
       client.from('product_specifications').select('id,product_id,label,value,sort_order').order('sort_order'),
       client.from('product_model_files').select('product_id,original_filename,format,file_size_bytes,unit,width,depth,height,volume,surface_area,triangle_count,object_count,watertight,material,weight,weight_unit').order('updated_at', { ascending: false }),
+      client.from('orders').select('id,order_number,status,payment_status,fulfilment_method,customer_email,customer_phone,customer_name,company_name,grand_total,currency,customer_note,internal_note,created_at,updated_at').order('created_at', { ascending: false }).limit(50),
     ]);
 
     if (categoryResult.error) await handleAppError(categoryResult.error.message);
@@ -330,6 +394,26 @@ export default function AdminApp() {
       for (const model of modelResult.data || []) grouped[model.product_id] = { ...model, filename: model.original_filename, material: model.material || null, weight: model.weight === null ? null : Number(model.weight), weight_unit: model.weight_unit || null } as ModelAnalysis;
       setProductModelAnalysis(grouped);
     } else setProductModelAnalysis({});
+    if (!orderResult.error) {
+      const orderRows = (orderResult.data || []) as Order[];
+      setOrders(orderRows);
+      if (orderRows.length) {
+        const itemResult = await client
+          .from('order_items')
+          .select('id,order_id,product_name_snapshot,sku_snapshot,options_snapshot,quantity,unit_price,line_total,requires_artwork')
+          .in('order_id', orderRows.map((order) => order.id))
+          .order('created_at');
+        if (itemResult.error) setOrderItems({});
+        else {
+          const grouped: Record<string, OrderItem[]> = {};
+          for (const item of itemResult.data || []) grouped[item.order_id] = [...(grouped[item.order_id] || []), item as OrderItem];
+          setOrderItems(grouped);
+        }
+      } else setOrderItems({});
+    } else {
+      setOrders([]);
+      setOrderItems({});
+    }
     setBusy('');
   }
 
@@ -388,6 +472,8 @@ export default function AdminApp() {
     setProductImages({});
     setCategories([]);
     setProductCategories([]);
+    setOrders([]);
+    setOrderItems({});
     setNotice({ type: 'success', text: 'Signed out.' });
   }
 
@@ -586,6 +672,25 @@ export default function AdminApp() {
     setBusy('');
   }
 
+  async function updateOrderStatus(order: Order, status: OrderStatus) {
+    if (!supabase || status === order.status) return;
+    setBusy(`order-${order.id}`);
+    const updateResult = await supabase.from('orders').update({ status }).eq('id', order.id);
+    if (updateResult.error) await handleAppError(updateResult.error.message);
+    else {
+      const historyResult = await supabase.from('order_status_history').insert({
+        order_id: order.id,
+        old_status: order.status,
+        new_status: status,
+        note: 'Status updated in Shop Manager.',
+      });
+      if (historyResult.error) await handleAppError(historyResult.error.message);
+      else setNotice({ type: 'success', text: `${order.order_number} moved to ${statusLabel(status)}.` });
+      await loadData();
+    }
+    setBusy('');
+  }
+
   function navigate(path: string) {
     window.location.href = path;
   }
@@ -604,6 +709,7 @@ export default function AdminApp() {
     { label: 'Dashboard', href: '/admin', key: 'dashboard' },
     { label: 'Products', href: '/admin/products', key: 'products' },
     { label: 'Categories', href: '/admin/categories', key: 'categories' },
+    { label: 'Orders', href: '/admin/orders', key: 'orders' },
   ];
 
   return <div className="admin-app-shell">
@@ -613,22 +719,72 @@ export default function AdminApp() {
       <div className="admin-side-footer"><a href="/" target="_blank">View Site</a><button type="button" onClick={signOut}>Log out</button></div>
     </aside>
     <div className="admin-workspace">
-      <header className="admin-topbar"><button className="admin-menu" type="button" onClick={() => setDrawerOpen(!drawerOpen)}>Menu</button><div><strong>Vert Printing</strong><small>Catalogue administration</small></div><a className="admin-button secondary" href="/">View Site</a></header>
+      <header className="admin-topbar"><button className="admin-menu" type="button" onClick={() => setDrawerOpen(!drawerOpen)}>Menu</button><div><strong>Vert Printing</strong><small>Shop administration</small></div><a className="admin-button secondary" href="/">View Site</a></header>
       <main className="admin-content">
         {notice && <p className={`admin-notice ${notice.type}`}>{notice.text}</p>}
-        {view === 'dashboard' && <Dashboard products={products} categories={categories} publishedCount={publishedCount} draftCount={draftCount} busy={busy} navigate={navigate} />}
+        {view === 'dashboard' && <Dashboard products={products} categories={categories} orders={orders} publishedCount={publishedCount} draftCount={draftCount} newOrderCount={newOrderCount} busy={busy} navigate={navigate} />}
         {view === 'products' && <Products products={products} productImages={productImages} productCategories={productCategories} categories={sortedCategories} supabase={supabase} busy={busy} navigate={navigate} togglePublish={togglePublish} uploadProductImage={uploadProductImage} setPreviewImage={setPreviewImage} updateProductCategory={updateProductCategory} />}
         {view === 'new-product' && <ProductEditor mode="new" busy={busy} onSubmit={createProduct} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} categories={sortedCategories} selectedCategoryId={selectedCategoryId} setSelectedCategoryId={setSelectedCategoryId} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} supabase={supabase} />}
         {view === 'edit-product' && <EditProduct products={products} productSpecifications={productSpecifications} productModelAnalysis={productModelAnalysis} busy={busy} updateProduct={updateProduct} loadProductForm={loadProductForm} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} productId={selectedEditProductId} primaryImageUrl={selectedEditImageUrl} imageAltText={imageAltText} setImageAltText={setImageAltText} supabase={supabase} onModelSaved={(analysis) => setProductModelAnalysis((current) => ({ ...current, [selectedEditProductId]: analysis }))} />}
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} />}
+        {view === 'orders' && <Orders orders={orders} orderItems={orderItems} busy={busy} refresh={() => loadData()} updateOrderStatus={updateOrderStatus} />}
       </main>
     </div>
     {previewImage && <div className="admin-image-modal" role="dialog" aria-modal="true" aria-label="Product image preview" onClick={() => setPreviewImage(null)}><div><button type="button" aria-label="Close image preview" onClick={() => setPreviewImage(null)}>Close</button><img src={previewImage.src} alt={previewImage.alt} /></div></div>}
   </div>;
 }
 
-function Dashboard({ products, categories, publishedCount, draftCount, busy, navigate }: { products: Product[]; categories: Category[]; publishedCount: number; draftCount: number; busy: string; navigate: (path: string) => void }) {
-  return <><PageHeader title="Shop Manager" eyebrow="Manage your Vert Printing shop." actions={<button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button>} /><section className="admin-metrics"><article><span>Total Products</span><strong>{products.length}</strong></article><article><span>Published Products</span><strong>{publishedCount}</strong></article><article><span>Draft Products</span><strong>{draftCount}</strong></article><article><span>Categories</span><strong>{categories.length}</strong></article></section><section className="admin-card"><h2>Catalogue overview</h2>{busy === 'loading' ? <p className="admin-muted">Loading catalogue...</p> : <p className="admin-muted">Use Products and Categories to manage what will appear in the future Vert online catalogue.</p>}</section></>;
+function Dashboard({ products, categories, orders, publishedCount, draftCount, newOrderCount, busy, navigate }: { products: Product[]; categories: Category[]; orders: Order[]; publishedCount: number; draftCount: number; newOrderCount: number; busy: string; navigate: (path: string) => void }) {
+  return <><PageHeader title="Shop Manager" eyebrow="Manage your Vert Printing shop." actions={<><button className="admin-button secondary" onClick={() => navigate('/admin/orders')}>View Orders</button><button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button></>} /><section className="admin-metrics"><article><span>Total Products</span><strong>{products.length}</strong></article><article><span>Published Products</span><strong>{publishedCount}</strong></article><article><span>Draft Products</span><strong>{draftCount}</strong></article><article><span>New Orders</span><strong>{newOrderCount}</strong></article></section><section className="admin-card"><h2>Shop overview</h2>{busy === 'loading' ? <p className="admin-muted">Loading shop data...</p> : <p className="admin-muted">Manage catalogue products, categories and the latest {orders.length} submitted order requests.</p>}<p className="admin-muted">Categories: {categories.length}</p></section></>;
+}
+
+function Orders({ orders, orderItems, busy, refresh, updateOrderStatus }: { orders: Order[]; orderItems: Record<string, OrderItem[]>; busy: string; refresh: () => void; updateOrderStatus: (order: Order, status: OrderStatus) => void }) {
+  const totalValue = orders.reduce((sum, order) => sum + Number(order.grand_total || 0), 0);
+  return <>
+    <PageHeader title="Orders" eyebrow="Review cart order requests from the website." actions={<button className="admin-button secondary" type="button" onClick={refresh} disabled={busy === 'loading'}>{busy === 'loading' ? 'Refreshing...' : 'Refresh'}</button>} />
+    <section className="admin-metrics admin-order-metrics">
+      <article><span>Recent Orders</span><strong>{orders.length}</strong></article>
+      <article><span>New</span><strong>{orders.filter((order) => order.status === 'new').length}</strong></article>
+      <article><span>In Progress</span><strong>{orders.filter((order) => ['awaiting_artwork', 'awaiting_approval', 'in_production'].includes(order.status)).length}</strong></article>
+      <article><span>Recent Value</span><strong>{formatMoney(totalValue)}</strong></article>
+    </section>
+    {orders.length ? <section className="admin-orders-list">
+      {orders.map((order) => {
+        const items = orderItems[order.id] || [];
+        return <article className="admin-order-card" key={order.id}>
+          <div className="admin-order-summary">
+            <div><span className="admin-order-number">{order.order_number}</span><h2>{order.customer_name}</h2><p>{formatDateTime(order.created_at)}</p></div>
+            <div className="admin-order-total"><Badge tone={statusTone(order.status)}>{statusLabel(order.status)}</Badge><strong>{formatMoney(Number(order.grand_total))}</strong></div>
+          </div>
+          <div className="admin-order-grid">
+            <div>
+              <h3>Customer</h3>
+              {order.company_name && <p>{order.company_name}</p>}
+              <p><a href={`mailto:${order.customer_email}`}>{order.customer_email}</a></p>
+              <p><a href={`tel:${order.customer_phone}`}>{order.customer_phone}</a></p>
+              <p>{order.fulfilment_method === 'delivery' ? 'Delivery to be confirmed' : 'Collection by appointment'}</p>
+            </div>
+            <div>
+              <h3>Items</h3>
+              <div className="admin-order-items">{items.length ? items.map((item) => {
+                const options = Array.isArray(item.options_snapshot) ? item.options_snapshot : [];
+                return <div key={item.id}>
+                  <strong>{item.quantity} x {item.product_name_snapshot}</strong>
+                  {options.length > 0 && <ul>{options.map((option, index) => <li key={`${item.id}-${index}`}>{option.label || [option.group_name, option.value].filter(Boolean).join(': ')}</li>)}</ul>}
+                  <span>{formatMoney(Number(item.line_total))}{item.requires_artwork ? ' · artwork required' : ''}</span>
+                </div>;
+              }) : <p className="admin-muted">No item details found.</p>}</div>
+            </div>
+          </div>
+          {order.customer_note && <div className="admin-order-note"><h3>Customer note</h3><p>{order.customer_note}</p></div>}
+          <div className="admin-order-actions">
+            <Field label="Order status"><select value={order.status} disabled={busy === `order-${order.id}`} onChange={(event) => updateOrderStatus(order, event.target.value as OrderStatus)}>{ORDER_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></Field>
+            <div><span>Payment</span><strong>{statusLabel(order.payment_status)}</strong><small>Payment is still handled manually.</small></div>
+          </div>
+        </article>;
+      })}
+    </section> : <EmptyState title="No order requests yet." text="Submitted cart orders will appear here with customer details, selected options and status controls." action={<a className="admin-button secondary" href="/shop/">View Shop</a>} />}
+  </>;
 }
 
 function Products({ products, productImages, productCategories, categories, supabase, busy, navigate, togglePublish, uploadProductImage, setPreviewImage, updateProductCategory }: { products: Product[]; productImages: Record<string, ProductImage>; productCategories: ProductCategory[]; categories: Category[]; supabase: SupabaseClient | null; busy: string; navigate: (path: string) => void; togglePublish: (product: Product) => void; uploadProductImage: (product: Product, files: FileList | null) => void; setPreviewImage: (image: { src: string; alt: string } | null) => void; updateProductCategory: (product: Product, categoryId: string) => void }) {
