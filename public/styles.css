@@ -2326,8 +2326,24 @@ h3 {
   text-align: center;
 }
 
+.shop-empty.shop-empty-catalogue {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-height: clamp(340px, 42vh, 460px);
+  margin-block: 24px 56px;
+  padding: clamp(56px, 8vw, 88px) clamp(24px, 5vw, 64px);
+}
+
 .shop-empty h2 {
   margin: 0;
+}
+
+.shop-empty-catalogue h2 {
+  max-width: 680px;
+  line-height: 1.15;
 }
 
 .shop-empty p,
@@ -2335,6 +2351,14 @@ h3 {
   max-width: 560px;
   margin: 0;
   color: var(--muted);
+}
+
+.shop-empty-catalogue p {
+  line-height: 1.65;
+}
+
+.shop-empty-catalogue .button {
+  margin-top: 6px;
 }
 
 .shop-skeleton-grid {

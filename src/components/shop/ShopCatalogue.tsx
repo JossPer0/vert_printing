@@ -316,7 +316,7 @@ export default function ShopCatalogue({ initialCatalogue }: { initialCatalogue?:
 
   if (loading) return <div className="shop-container"><div className="shop-skeleton-grid"><span></span><span></span><span></span></div></div>;
   if (error) return <div className="shop-container"><div className="shop-empty"><h2>Shop unavailable</h2><p>{error}</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
-  if (!products.length) return <div className="shop-container"><div className="shop-empty"><h2>Our online catalogue is being updated.</h2><p>Need something now? Tell us what you need and we'll put together a quote.</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
+  if (!products.length) return <div className="shop-container"><div className="shop-empty shop-empty-catalogue"><h2>Our online catalogue is being updated.</h2><p>Need something now? Tell us what you need and we'll put together a quote.</p><a className="button primary" href="/#quote">Request a Quote</a></div></div>;
 
   return <>
     <div className="shop-container">
