@@ -73,12 +73,16 @@ function render() {
       </div>
       <fieldset class="cart-fulfilment">
         <legend>Collection or delivery</legend>
-        <label><input type="radio" name="fulfilment_method" value="collection" checked /> <span>Collect from Vert Printing by appointment</span></label>
-        <label><input type="radio" name="fulfilment_method" value="delivery" /> <span>Ask Vert to confirm delivery options</span></label>
+        <div class="cart-choice-list">
+          <label><input type="radio" name="fulfilment_method" value="collection" checked /> <span>Collect from Vert Printing by appointment</span></label>
+          <label><input type="radio" name="fulfilment_method" value="delivery" /> <span>Ask Vert to confirm delivery options</span></label>
+        </div>
       </fieldset>
       <label class="cart-full"><span>Order notes</span><textarea name="customer_note" rows="4" placeholder="Deadline, colour notes, artwork details or anything we should know."></textarea></label>
-      <label class="cart-check"><input type="checkbox" name="marketing_opt_in" /> <span>Keep me updated about Vert Printing products and services.</span></label>
-      <label class="cart-check"><input type="checkbox" name="terms" required /> <span>I understand Vert will confirm payment, artwork and production details before starting.</span></label>
+      <div class="cart-check-list">
+        <label class="cart-check"><input type="checkbox" name="marketing_opt_in" /> <span>Keep me updated about Vert Printing products and services.</span></label>
+        <label class="cart-check"><input type="checkbox" name="terms" required /> <span>I understand Vert will confirm payment, artwork and production details before starting.</span></label>
+      </div>
       <div class="turnstile-field"><div class="cf-turnstile" data-sitekey="0x4AAAAAAEEbOXRF_g_FNQHQ" data-action="turnstile-spin-v2"></div></div>
       <div class="cart-submit-row"><button class="button primary" type="submit">Send order request</button><p class="cart-form-status" role="status"></p></div>
     </form>`;
