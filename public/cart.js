@@ -1,5 +1,6 @@
 const root = document.querySelector('#cart-root');
 const CART_KEY = 'vert-cart-v1';
+const TURNSTILE_SITE_KEY = '0x4AAAAAAEEbOXRF_g_FNQHQ';
 const money = (value) => `R${Number(value).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 const readCart = () => { try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch { return []; } };
@@ -29,6 +30,24 @@ function emptyCart() {
 
 function renderConfirmation(orderNumber) {
   root.innerHTML = `<div class="cart-confirmation"><p class="section-kicker">Order received</p><h1>Thanks, your order request has been sent.</h1><p>Reference <strong>${escapeHtml(orderNumber)}</strong>. We will review the details and confirm collection, delivery and payment before production starts.</p><div class="cart-actions"><a class="button primary" href="/shop/">Continue shopping</a><a class="button secondary dark" href="/">Back to home</a></div></div>`;
+}
+
+function renderTurnstile(attempt = 0) {
+  const widget = root.querySelector('.cf-turnstile');
+  if (!widget || widget.dataset.widgetId || widget.querySelector('iframe')) return;
+  if (window.turnstile?.render) {
+    try {
+      const widgetId = window.turnstile.render(widget, {
+        sitekey: TURNSTILE_SITE_KEY,
+        action: 'turnstile-spin-v2',
+      });
+      widget.dataset.widgetId = widgetId || 'rendered';
+    } catch {
+      if (!widget.querySelector('iframe') && attempt < 20) setTimeout(() => renderTurnstile(attempt + 1), 250);
+    }
+    return;
+  }
+  if (attempt < 40) setTimeout(() => renderTurnstile(attempt + 1), 250);
 }
 
 function render() {
@@ -83,7 +102,7 @@ function render() {
         <label class="cart-check"><input type="checkbox" name="marketing_opt_in" /> <span>Keep me updated about Vert Printing products and services.</span></label>
         <label class="cart-check"><input type="checkbox" name="terms" required /> <span>I understand Vert will confirm payment, artwork and production details before starting.</span></label>
       </div>
-      <div class="turnstile-field"><div class="cf-turnstile" data-sitekey="0x4AAAAAAEEbOXRF_g_FNQHQ" data-action="turnstile-spin-v2"></div></div>
+      <div class="turnstile-field"><div class="cf-turnstile" data-sitekey="${TURNSTILE_SITE_KEY}" data-action="turnstile-spin-v2"></div></div>
       <div class="cart-submit-row"><button class="button primary" type="submit">Send order request</button><p class="cart-form-status" role="status"></p></div>
     </form>`;
 
@@ -105,6 +124,7 @@ function render() {
     render();
   });
   root.querySelector('#cart-checkout-form')?.addEventListener('submit', submitOrder);
+  renderTurnstile();
 }
 
 async function submitOrder(event) {
@@ -116,6 +136,7 @@ async function submitOrder(event) {
   const turnstileToken = formData.get('cf-turnstile-response');
   if (!turnstileToken) {
     status.textContent = 'Please complete the human verification.';
+    renderTurnstile();
     return;
   }
   button.disabled = true;
