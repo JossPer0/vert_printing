@@ -1915,6 +1915,7 @@ h3 {
 }
 
 .admin-order-items strong,
+.admin-order-items small,
 .admin-order-items span {
   display: block;
 }
@@ -1928,6 +1929,12 @@ h3 {
 .admin-order-items span {
   color: var(--admin-muted);
   font-size: 0.88rem;
+}
+
+.admin-order-items small {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .admin-order-note {
@@ -2156,6 +2163,22 @@ h3 {
   margin: 0;
   padding-left: 18px;
   color: var(--admin-muted);
+}
+
+.admin-catalogue-picker {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  padding: 14px;
+  background: #fbfaf7;
+}
+
+.admin-catalogue-picker .admin-field {
+  margin-bottom: 0;
 }
 
 .admin-quote-tax-toggle {
@@ -2636,6 +2659,7 @@ h3 {
   .admin-order-grid,
   .admin-order-actions,
   .admin-quote-editor,
+  .admin-catalogue-picker,
   .admin-quote-total-grid,
   .admin-quote-line {
     min-width: 0;
@@ -2647,6 +2671,7 @@ h3 {
   .admin-order-grid,
   .admin-order-actions,
   .admin-quote-editor,
+  .admin-catalogue-picker,
   .admin-quote-total-grid,
   .admin-quote-line {
     grid-template-columns: 1fr;
@@ -2657,6 +2682,10 @@ h3 {
   }
 
   .admin-quote-line .admin-button {
+    width: 100%;
+  }
+
+  .admin-catalogue-picker .admin-button {
     width: 100%;
   }
 

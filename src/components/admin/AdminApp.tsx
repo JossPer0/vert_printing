@@ -27,6 +27,7 @@ type ProductImage = {
 type Product = {
   id: string;
   name: string;
+  sku: string | null;
   slug: string;
   product_type: string;
   pricing_mode: string;
@@ -414,6 +415,12 @@ const formatMoney = (value: number | null) => {
 
 const roundMoney = (value: number) => Number((Math.round((Number(value) || 0) * 100) / 100).toFixed(2));
 
+const productQuoteLabel = (product: Product) => {
+  if (product.base_price === null || product.pricing_mode === 'quote_only') return `${product.name} - custom pricing`;
+  const prefix = product.pricing_mode === 'from_price' ? 'from ' : '';
+  return `${product.name} - ${prefix}${formatMoney(Number(product.base_price))}`;
+};
+
 const formatDateTime = (value: string) =>
   new Intl.DateTimeFormat('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 
@@ -550,7 +557,7 @@ export default function AdminApp() {
     setBusy('loading');
     let [categoryResult, productResult, imageResult, productCategoryResult, specificationResult, modelResult, orderResult, quoteResult]: any[] = await Promise.all([
       client.from('categories').select('id,name,slug,description,seo_title,seo_description,is_active,sort_order').order('sort_order').order('name'),
-      client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information,seo_title,seo_description,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
+      client.from('products').select('id,name,sku,slug,product_type,pricing_mode,base_price,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information,seo_title,seo_description,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
       client.from('product_images').select('id,product_id,storage_path,alt_text,sort_order').order('sort_order'),
       client.from('product_categories').select('product_id,category_id'),
       client.from('product_specifications').select('id,product_id,label,value,sort_order').order('sort_order'),
@@ -563,11 +570,12 @@ export default function AdminApp() {
     else setCategories(categoryResult.data || []);
 
     if (productResult.error) {
-      productResult = await client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false });
+      productResult = await client.from('products').select('id,name,sku,slug,product_type,pricing_mode,base_price,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false });
     }
     if (productResult.error) await handleAppError(productResult.error.message);
     else setProducts((productResult.data || []).map((product: Partial<Product>) => ({
       ...product,
+      sku: product.sku ?? null,
       short_description: product.short_description ?? null,
       description: product.description ?? null,
       material: product.material ?? null,
@@ -1217,8 +1225,8 @@ export default function AdminApp() {
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} updateCategory={updateCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} categoryDescription={categoryDescription} setCategoryDescription={setCategoryDescription} categorySeoTitle={categorySeoTitle} setCategorySeoTitle={setCategorySeoTitle} categorySeoDescription={categorySeoDescription} setCategorySeoDescription={setCategorySeoDescription} />}
         {view === 'orders' && <Orders orders={orders} orderItems={orderItems} orderHistory={orderHistory} busy={busy} refresh={() => loadData()} updateOrderStatus={updateOrderStatus} />}
         {view === 'quotes' && <Quotes quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} quotesReady={quotesReady} busy={busy} refresh={() => loadData()} deleteQuote={deleteQuote} />}
-        {view === 'new-quote' && <QuoteEditor mode="new" busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
-        {view === 'edit-quote' && <EditQuote quoteId={selectedEditQuoteId} quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} busy={busy} quotesReady={quotesReady} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
+        {view === 'new-quote' && <QuoteEditor mode="new" products={products} busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
+        {view === 'edit-quote' && <EditQuote quoteId={selectedEditQuoteId} products={products} quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} busy={busy} quotesReady={quotesReady} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
       </main>
     </div>
     {previewImage && <div className="admin-image-modal" role="dialog" aria-modal="true" aria-label="Product image preview" onClick={() => setPreviewImage(null)}><div><button type="button" aria-label="Close image preview" onClick={() => setPreviewImage(null)}>Close</button><img src={previewImage.src} alt={previewImage.alt} /></div></div>}
@@ -1355,7 +1363,7 @@ function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, 
             </div>
             <div>
               <h3>Quote lines</h3>
-              <div className="admin-order-items">{items.length ? items.map((item) => <div key={item.id || `${quote.id}-${item.sort_order}`}><strong>{item.description}</strong><span>{item.quantity} x {formatMoney(Number(item.unit_price))} = {formatMoney(Number(item.line_total))}</span></div>) : <p className="admin-muted">No line items yet.</p>}</div>
+              <div className="admin-order-items">{items.length ? items.map((item) => <div key={item.id || `${quote.id}-${item.sort_order}`}><strong>{item.description}</strong>{item.sku && <small>SKU: {item.sku}</small>}<span>{item.quantity} x {formatMoney(Number(item.unit_price))} = {formatMoney(Number(item.line_total))}</span></div>) : <p className="admin-muted">No line items yet.</p>}</div>
             </div>
           </div>
           {quote.customer_note && <div className="admin-order-note"><h3>Customer note</h3><p>{quote.customer_note}</p></div>}
@@ -1394,7 +1402,7 @@ function blankQuoteItem(sortOrder = 0): QuoteItem {
   };
 }
 
-function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { mode: 'new' | 'edit'; quote?: Quote; request?: QuoteRequest | null; items?: QuoteItem[]; history?: QuoteStatusHistory[]; busy: string; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
+function QuoteEditor({ mode, quote, request, items = [], history = [], products, busy, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { mode: 'new' | 'edit'; quote?: Quote; request?: QuoteRequest | null; items?: QuoteItem[]; history?: QuoteStatusHistory[]; products: Product[]; busy: string; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
   const [source, setSource] = useState<QuoteSource>(quote?.source || 'manual');
   const [status, setStatus] = useState<QuoteStatus>(quote?.status || 'draft');
   const [startMode, setStartMode] = useState<'blank' | 'notes'>(request?.raw_message || request?.summary ? 'notes' : 'blank');
@@ -1418,6 +1426,7 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiE
   const [internalNote, setInternalNote] = useState(quote?.internal_note || '');
   const [termsText, setTermsText] = useState(quote?.terms_text || 'Quote is valid until the date shown. Production starts once artwork, payment and production details have been confirmed.');
   const [quoteLines, setQuoteLines] = useState<QuoteItem[]>(items.length ? items.map((item, index) => ({ ...item, sort_order: index })) : [blankQuoteItem()]);
+  const [selectedProductId, setSelectedProductId] = useState('');
 
   useEffect(() => {
     if (!quote) return;
@@ -1461,6 +1470,28 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiE
 
   const updateLine = (index: number, updates: Partial<QuoteItem>) => setQuoteLines(quoteLines.map((item, rowIndex) => rowIndex === index ? { ...item, ...updates } : item));
   const removeLine = (index: number) => setQuoteLines(quoteLines.length === 1 ? [blankQuoteItem()] : quoteLines.filter((_item, rowIndex) => rowIndex !== index).map((item, rowIndex) => ({ ...item, sort_order: rowIndex })));
+  const catalogueProducts = products.filter((product) => product.is_active).sort((a, b) => a.name.localeCompare(b.name));
+
+  function addCatalogueProduct() {
+    const product = catalogueProducts.find((item) => item.id === selectedProductId);
+    if (!product) return;
+    const quantity = Math.max(1, Number(product.minimum_quantity) || 1);
+    const unitPrice = product.base_price === null || product.pricing_mode === 'quote_only' ? 0 : roundMoney(Number(product.base_price));
+    const lineSubtotal = roundMoney(quantity * unitPrice);
+    const catalogueLine: QuoteItem = {
+      ...blankQuoteItem(quoteLines.length),
+      product_id: product.id,
+      description: product.name,
+      sku: product.sku || null,
+      quantity,
+      unit_price: unitPrice,
+      line_subtotal: lineSubtotal,
+      line_total: lineSubtotal,
+    };
+    const hasOnlyBlankLine = quoteLines.length === 1 && !quoteLines[0].description.trim() && Number(quoteLines[0].unit_price || 0) === 0;
+    setQuoteLines(hasOnlyBlankLine ? [catalogueLine] : [...quoteLines, catalogueLine]);
+    setSelectedProductId('');
+  }
 
   async function createAiDraft() {
     if (!intakeMessage.trim()) {
@@ -1602,7 +1633,16 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiE
         </div>}
       </div>
       <div className="admin-card admin-card-wide">
-        <div className="admin-section-heading"><div><h2>Line Items</h2><p className="admin-muted">Add the products, branding, setup charges, delivery or other custom work Fran is quoting.</p></div><button className="admin-button secondary" type="button" onClick={() => setQuoteLines([...quoteLines, blankQuoteItem(quoteLines.length)])}>+ Add Line Item</button></div>
+        <div className="admin-section-heading"><div><h2>Line Items</h2><p className="admin-muted">Add catalogue products, branding, setup charges, delivery or other custom work Fran is quoting.</p></div><button className="admin-button secondary" type="button" onClick={() => setQuoteLines([...quoteLines, blankQuoteItem(quoteLines.length)])}>+ Add Custom Line</button></div>
+        <div className="admin-catalogue-picker">
+          <Field label="Catalogue product" helper="Adds a snapshot of the current product name, SKU and price. You can still edit the quote line before saving.">
+            <select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)} disabled={!catalogueProducts.length}>
+              <option value="">{catalogueProducts.length ? 'Choose a product to add' : 'No active catalogue products'}</option>
+              {catalogueProducts.map((product) => <option key={product.id} value={product.id}>{productQuoteLabel(product)}</option>)}
+            </select>
+          </Field>
+          <button className="admin-button secondary" type="button" onClick={addCatalogueProduct} disabled={!selectedProductId}>+ Add Catalogue Product</button>
+        </div>
         <div className="admin-quote-lines">
           <div className="admin-quote-line-head"><span>Description</span><span>Qty</span><span>Unit price</span><span>Discount</span><span>Total</span><span></span></div>
           {calculatedLines.map((item, index) => <div className="admin-quote-line" key={index}>
@@ -1645,12 +1685,12 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiE
   </form>;
 }
 
-function EditQuote({ quoteId, quotes, quoteItems, quoteHistory, quoteRequests, busy, quotesReady, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { quoteId: string; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; busy: string; quotesReady: boolean; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
+function EditQuote({ quoteId, products, quotes, quoteItems, quoteHistory, quoteRequests, busy, quotesReady, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { quoteId: string; products: Product[]; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; busy: string; quotesReady: boolean; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
   if (!quotesReady) return <><PageHeader title="Quotes" eyebrow="Create and manage custom Vert quotes." /><EmptyState title="Quote system migration needed." text="Run the latest Supabase quoting migration before editing quotes." /></>;
   const quote = quotes.find((item) => item.id === quoteId);
   if (busy === 'loading') return <section className="admin-card"><p className="admin-muted">Loading quote...</p></section>;
   if (!quote) return <EmptyState title="Quote not found." text="This quote could not be loaded. Return to the quote list and try again." action={<a className="admin-button secondary" href="/admin/quotes">Back to Quotes</a>} />;
-  return <QuoteEditor mode="edit" quote={quote} request={quote.quote_request_id ? quoteRequests[quote.quote_request_id] : null} items={quoteItems[quote.id] || []} history={quoteHistory[quote.id] || []} busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />;
+  return <QuoteEditor mode="edit" quote={quote} request={quote.quote_request_id ? quoteRequests[quote.quote_request_id] : null} items={quoteItems[quote.id] || []} history={quoteHistory[quote.id] || []} products={products} busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />;
 }
 
 function Products({ products, productImages, productCategories, categories, supabase, busy, navigate, togglePublish, uploadProductImage, setPreviewImage, updateProductCategory }: { products: Product[]; productImages: Record<string, ProductImage>; productCategories: ProductCategory[]; categories: Category[]; supabase: SupabaseClient | null; busy: string; navigate: (path: string) => void; togglePublish: (product: Product) => void; uploadProductImage: (product: Product, files: FileList | null) => void; setPreviewImage: (image: { src: string; alt: string } | null) => void; updateProductCategory: (product: Product, categoryId: string) => void }) {
