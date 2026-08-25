@@ -37,21 +37,33 @@ function postgrestIn(ids) {
   return `in.(${ids.join(",")})`;
 }
 
+function supabaseAdminHeaders(env, prefer) {
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = {
+    apikey: key,
+    "content-type": "application/json",
+    Prefer: prefer,
+  };
+
+  // Legacy service_role keys are JWTs and can be used as a Bearer token.
+  // New Supabase sb_secret_* keys are not JWTs; send them as apikey only.
+  if (!String(key || "").startsWith("sb_secret_")) {
+    headers.Authorization = `Bearer ${key}`;
+  }
+
+  return headers;
+}
+
 async function supabaseFetch(env, path, options = {}) {
   const response = await fetch(`${env.PUBLIC_SUPABASE_URL}/rest/v1/${path}`, {
     method: options.method || "GET",
-    headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-      "content-type": "application/json",
-      Prefer: options.prefer || "return=representation",
-    },
+    headers: supabaseAdminHeaders(env, options.prefer || "return=representation"),
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) {
-    console.error("Supabase order API failed", response.status, text);
+    console.error("Supabase order API failed", options.label || path.split("?")[0], response.status, text);
     throw new Error("supabase");
   }
   return data;
@@ -241,12 +253,14 @@ export async function onRequestPost({ request, env }) {
   const products = await supabaseFetch(
     env,
     `products?select=id,name,sku,product_type,pricing_mode,base_price,requires_artwork,minimum_quantity,maximum_quantity,is_active,is_published,archived_at&order=id&id=${postgrestIn(productIds)}`,
+    { label: "load products" },
   );
   const productById = new Map((products || []).map((product) => [product.id, product]));
 
   const groups = await supabaseFetch(
     env,
     `option_groups?select=id,product_id,name,display_type,sort_order,option_values(id,option_group_id,label,value,price_adjustment,is_active,sort_order)&product_id=${postgrestIn(productIds)}&order=sort_order.asc`,
+    { label: "load option groups" },
   );
   const groupsByProduct = new Map();
   for (const group of groups || []) {
@@ -314,7 +328,7 @@ export async function onRequestPost({ request, env }) {
   const fulfilment = payload.fulfilment_method === "delivery" ? "delivery" : "collection";
   const note = clean(payload.customer_note, 1000) || null;
   const orderNumber = `VERT-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-  const customerRows = await supabaseFetch(env, "customers", { method: "POST", body: customer });
+  const customerRows = await supabaseFetch(env, "customers", { method: "POST", body: customer, label: "create customer" });
   const savedCustomer = customerRows[0];
   const orderPayload = {
     order_number: orderNumber,
@@ -334,16 +348,18 @@ export async function onRequestPost({ request, env }) {
     currency: "ZAR",
     customer_note: note,
   };
-  const orderRows = await supabaseFetch(env, "orders", { method: "POST", body: orderPayload });
+  const orderRows = await supabaseFetch(env, "orders", { method: "POST", body: orderPayload, label: "create order" });
   const order = orderRows[0];
   const savedItems = await supabaseFetch(env, "order_items", {
     method: "POST",
     body: orderItems.map((item) => ({ ...item, order_id: order.id })),
+    label: "create order items",
   });
   await supabaseFetch(env, "order_status_history", {
     method: "POST",
     body: { order_id: order.id, new_status: "new", note: "Order request received from website cart." },
     prefer: "return=minimal",
+    label: "create order history",
   });
   await notify(env, order, savedItems || orderItems);
 
