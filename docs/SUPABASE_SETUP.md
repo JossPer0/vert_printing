@@ -34,13 +34,63 @@ Apply committed SQL migrations from:
 supabase/migrations/
 ```
 
+The repo now includes the Supabase CLI as a project dev dependency and exposes the migration workflow through npm scripts.
+
+### First-time local CLI setup
+
+Install dependencies:
+
+```sh
+npm install
+```
+
+Log in to Supabase from this machine:
+
+```sh
+npx supabase login
+```
+
+Then link this repository to the Vert Supabase project:
+
+```sh
+npm run db:link
+```
+
+This creates local Supabase CLI state under `supabase/.temp/`, which is intentionally ignored by Git. Do not commit access tokens, database passwords or generated local state.
+
+### Check migration state
+
+Before applying a new migration, compare local migrations with the linked remote project:
+
+```sh
+npm run db:migrations
+```
+
+### Apply committed migrations
+
+Push all unapplied committed migrations to the linked Supabase project:
+
+```sh
+npm run db:push
+```
+
+After `db:push`, run:
+
+```sh
+npm run db:migrations
+```
+
+to confirm the local and remote migration histories match.
+
+### Existing migrations
+
 Initial migration:
 
 ```text
 202608180001_phase1_shop_foundation.sql
 ```
 
-Use Supabase SQL editor or Supabase CLI. If using the SQL editor, paste the migration exactly and record that it was applied.
+All schema changes must be added as committed SQL files in `supabase/migrations/` before being applied to Supabase.
 
 ## Initial Owner
 

@@ -1,7 +1,22 @@
 import { useState } from 'react';
 import type { ModelAnalysis } from '../../lib/modelAnalysis';
 
-type ProductInfo = Record<string, string>;
+type ProductInfo = {
+  short_description: string;
+  description: string;
+  material: string;
+  dimensions: string;
+  colour_information: string;
+  finish: string;
+  weight: string;
+  lead_time_text: string;
+  customisation_information: string;
+  care_instructions: string;
+  whats_included: string;
+  made_to_order_information: string;
+  seo_title: string;
+  seo_description: string;
+};
 type Specification = { label: string; value: string };
 type Suggestions = {
   short_description: string | null;
@@ -19,6 +34,8 @@ type Suggestions = {
   warnings: string[];
 };
 
+type SuggestionTextKey = 'short_description' | 'full_description' | 'customisation_information' | 'care_instructions' | 'whats_included' | 'seo_title' | 'seo_description' | 'alt_text';
+
 type Props = {
   productId?: string;
   primaryImageUrl?: string;
@@ -35,7 +52,7 @@ type Props = {
   generateAiContent: (request: { product_id?: string; product: Record<string, unknown>; additional_context: string; use_primary_image: boolean }) => Promise<Suggestions>;
 };
 
-const labels: Array<[keyof Suggestions, string]> = [
+const labels: Array<[SuggestionTextKey, string]> = [
   ['short_description', 'Short description'],
   ['full_description', 'Full description'],
   ['customisation_information', 'Customisation information'],
@@ -52,7 +69,7 @@ export default function AdminAiAssistant(props: Props) {
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [pendingApply, setPendingApply] = useState<{ key: keyof Suggestions; label: string; value: string } | null>(null);
+  const [pendingApply, setPendingApply] = useState<{ key: SuggestionTextKey; label: string; value: string } | null>(null);
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
   const [appliedAll, setAppliedAll] = useState(false);
 
@@ -88,19 +105,19 @@ export default function AdminAiAssistant(props: Props) {
     }
   }
 
-  function applyValue(key: keyof Suggestions, value: string) {
+  function applyValue(key: SuggestionTextKey, value: string) {
     if (key === 'alt_text') props.setImageAltText?.(value);
     else {
-      const productKey = key === 'full_description' ? 'description' : key;
+      const productKey = (key === 'full_description' ? 'description' : key) as keyof ProductInfo;
       props.setProductInfo({ ...props.productInfo, [productKey]: value });
     }
     setAppliedKeys((current) => new Set(current).add(key));
   }
 
-  function apply(key: keyof Suggestions, label: string) {
+  function apply(key: SuggestionTextKey, label: string) {
     const value = suggestions?.[key];
     if (typeof value !== 'string' || !value.trim()) return;
-    const productKey = key === 'full_description' ? 'description' : key;
+    const productKey = (key === 'full_description' ? 'description' : key) as keyof ProductInfo;
     const current = key === 'alt_text' ? props.imageAltText || '' : props.productInfo[productKey] || '';
     if (current.trim()) {
       setPendingApply({ key, label, value });

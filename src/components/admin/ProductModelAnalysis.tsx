@@ -3,10 +3,20 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { analyseModelFile, type ModelAnalysis } from '../../lib/modelAnalysis';
 
 type ProductInfo = {
+  short_description: string;
+  description: string;
   material: string;
   dimensions: string;
+  colour_information: string;
   finish: string;
+  weight: string;
   lead_time_text: string;
+  customisation_information: string;
+  care_instructions: string;
+  whats_included: string;
+  made_to_order_information: string;
+  seo_title: string;
+  seo_description: string;
 };
 
 type Props = {

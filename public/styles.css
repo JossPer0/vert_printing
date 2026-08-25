@@ -1244,7 +1244,7 @@ h3 {
 
 .admin-metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 }
@@ -1892,6 +1892,154 @@ h3 {
   text-transform: uppercase;
 }
 
+.admin-quote-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.admin-quote-card {
+  border-left: 4px solid rgba(236, 22, 140, 0.65);
+}
+
+.admin-quote-actions {
+  grid-template-columns: minmax(180px, auto) minmax(0, 1fr);
+}
+
+.admin-quote-tax-toggle {
+  align-self: center;
+  min-height: 44px;
+  margin: 23px 0 16px;
+}
+
+.admin-quote-lines {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-quote-line-head,
+.admin-quote-line {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 90px 130px 120px 130px 92px;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-quote-line-head {
+  padding: 0 2px 4px;
+  color: var(--admin-muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-quote-line {
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fbfaf7;
+}
+
+.admin-quote-line input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #d2d0ca;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--admin-text);
+  background: #fff;
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.admin-quote-line input:focus {
+  outline: 3px solid rgba(236, 22, 140, 0.18);
+  border-color: var(--admin-pink);
+}
+
+.admin-quote-line strong {
+  color: var(--admin-text);
+  font-size: 0.95rem;
+}
+
+.admin-quote-line .admin-button {
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.admin-quote-summary-card {
+  border-left: 4px solid var(--admin-teal);
+}
+
+.admin-quote-total-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.admin-quote-total-grid > div,
+.admin-quote-grand-total {
+  display: grid;
+  gap: 6px;
+  min-height: 72px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fbfaf7;
+}
+
+.admin-quote-total-grid .admin-field {
+  margin-bottom: 0;
+}
+
+.admin-quote-total-grid span,
+.admin-quote-grand-total span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.admin-quote-total-grid strong {
+  align-self: center;
+  font-size: 1.08rem;
+}
+
+.admin-quote-grand-total {
+  border-color: rgba(236, 22, 140, 0.3);
+  background: #fff4fa;
+}
+
+.admin-quote-grand-total strong {
+  color: var(--admin-pink);
+  font-size: 1.32rem;
+}
+
+@media (max-width: 1180px) {
+  .admin-quote-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-quote-total-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-quote-line-head {
+    display: none;
+  }
+
+  .admin-quote-line {
+    grid-template-columns: minmax(0, 1fr) minmax(110px, 0.35fr);
+  }
+
+  .admin-quote-line input:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
 .admin-upload {
   position: relative;
   display: inline-flex;
@@ -2140,6 +2288,22 @@ h3 {
     grid-template-columns: 1fr 1fr;
   }
 
+  .admin-quote-total-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-quote-line-head {
+    display: none;
+  }
+
+  .admin-quote-line {
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 0.4fr);
+  }
+
+  .admin-quote-line input:first-child {
+    grid-column: 1 / -1;
+  }
+
   .admin-table-card {
     overflow-x: auto;
   }
@@ -2218,7 +2382,10 @@ h3 {
   .admin-spec-row,
   .admin-order-summary,
   .admin-order-grid,
-  .admin-order-actions {
+  .admin-order-actions,
+  .admin-quote-editor,
+  .admin-quote-total-grid,
+  .admin-quote-line {
     min-width: 0;
   }
 
@@ -2226,8 +2393,19 @@ h3 {
   .admin-spec-row,
   .admin-order-summary,
   .admin-order-grid,
-  .admin-order-actions {
+  .admin-order-actions,
+  .admin-quote-editor,
+  .admin-quote-total-grid,
+  .admin-quote-line {
     grid-template-columns: 1fr;
+  }
+
+  .admin-quote-line input:first-child {
+    grid-column: auto;
+  }
+
+  .admin-quote-line .admin-button {
+    width: 100%;
   }
 
   .admin-spec-row .admin-button {
