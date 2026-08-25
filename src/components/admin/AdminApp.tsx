@@ -183,6 +183,17 @@ type QuoteStatusHistory = {
   created_at: string;
 };
 
+type QuoteDocument = {
+  id: string;
+  quote_id: string;
+  document_type: string;
+  version_number: number;
+  storage_path: string;
+  generated_at: string;
+  sent_at: string | null;
+  created_at: string;
+};
+
 type QuoteDraftPayload = {
   quote_request_id?: string | null;
   source: QuoteSource;
@@ -496,6 +507,7 @@ export default function AdminApp() {
   const [quoteItems, setQuoteItems] = useState<Record<string, QuoteItem[]>>({});
   const [quoteHistory, setQuoteHistory] = useState<Record<string, QuoteStatusHistory[]>>({});
   const [quoteRequests, setQuoteRequests] = useState<Record<string, QuoteRequest>>({});
+  const [quoteDocuments, setQuoteDocuments] = useState<Record<string, QuoteDocument>>({});
   const [quotesReady, setQuotesReady] = useState(true);
   const [categoryName, setCategoryName] = useState('');
   const [categorySlug, setCategorySlug] = useState('');
@@ -562,6 +574,7 @@ export default function AdminApp() {
       setQuoteItems({});
       setQuoteHistory({});
       setQuoteRequests({});
+      setQuoteDocuments({});
       setImageAltText('');
     }
   }
@@ -671,7 +684,7 @@ export default function AdminApp() {
       setQuotes(quoteRows);
       if (quoteRows.length) {
         const linkedRequestIds = quoteRows.map((quote) => quote.quote_request_id).filter((id): id is string => Boolean(id));
-        const [quoteItemResult, quoteHistoryResult, quoteRequestResult] = await Promise.all([
+        const [quoteItemResult, quoteHistoryResult, quoteRequestResult, quoteDocumentResult] = await Promise.all([
           client
             .from('quote_items')
             .select('id,quote_id,sort_order,product_id,description,sku,quantity,unit_price,line_subtotal,discount_amount,line_total,taxable')
@@ -688,6 +701,12 @@ export default function AdminApp() {
               .select('id,source,status,customer_name,company_name,email,phone,subject,raw_message,summary,requested_by_date,created_at,updated_at')
               .in('id', linkedRequestIds)
             : Promise.resolve({ data: [], error: null }),
+          client
+            .from('quote_documents')
+            .select('id,quote_id,document_type,version_number,storage_path,generated_at,sent_at,created_at')
+            .in('quote_id', quoteRows.map((quote) => quote.id))
+            .eq('document_type', 'quote')
+            .order('version_number', { ascending: false }),
         ]);
         if (quoteItemResult.error) setQuoteItems({});
         else {
@@ -707,10 +726,19 @@ export default function AdminApp() {
           for (const request of quoteRequestResult.data || []) grouped[request.id] = request as QuoteRequest;
           setQuoteRequests(grouped);
         }
+        if (quoteDocumentResult.error) setQuoteDocuments({});
+        else {
+          const grouped: Record<string, QuoteDocument> = {};
+          for (const document of quoteDocumentResult.data || []) {
+            if (!grouped[document.quote_id]) grouped[document.quote_id] = document as QuoteDocument;
+          }
+          setQuoteDocuments(grouped);
+        }
       } else {
         setQuoteItems({});
         setQuoteHistory({});
         setQuoteRequests({});
+        setQuoteDocuments({});
       }
     } else {
       setQuotesReady(false);
@@ -718,6 +746,7 @@ export default function AdminApp() {
       setQuoteItems({});
       setQuoteHistory({});
       setQuoteRequests({});
+      setQuoteDocuments({});
     }
     setBusy('');
   }
@@ -961,6 +990,77 @@ export default function AdminApp() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.ok) throw new Error(payload.error || "We couldn't create a quote draft right now.");
     return payload.extraction as QuoteExtraction;
+  }
+
+  async function adminToken() {
+    if (!supabase) throw new Error('Shop Manager is not configured.');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error('Your session has expired. Please sign in again.');
+    return token;
+  }
+
+  async function generateQuotePdf(quote: Quote) {
+    setBusy(`quote-pdf-${quote.id}`);
+    try {
+      const response = await fetch(`/api/admin/quotes/${encodeURIComponent(quote.id)}/pdf`, {
+        method: 'POST',
+        headers: { authorization: 'Bearer ' + await adminToken() },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'We could not generate the quote PDF right now.');
+      setNotice({ type: 'success', text: payload.message || `${quote.quote_number} PDF generated.` });
+      await loadData();
+    } catch (error) {
+      await handleAppError(error instanceof Error ? error.message : 'We could not generate the quote PDF right now.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function downloadQuotePdf(quote: Quote) {
+    setBusy(`quote-download-${quote.id}`);
+    try {
+      const response = await fetch(`/api/admin/quotes/${encodeURIComponent(quote.id)}/pdf`, {
+        headers: { authorization: 'Bearer ' + await adminToken() },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'We could not download the quote PDF right now.');
+      }
+      const blob = await response.blob();
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = `${quote.quote_number}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(href);
+      setNotice({ type: 'success', text: `${quote.quote_number} PDF downloaded.` });
+    } catch (error) {
+      await handleAppError(error instanceof Error ? error.message : 'We could not download the quote PDF right now.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function sendQuote(quote: Quote) {
+    setBusy(`quote-send-${quote.id}`);
+    try {
+      const response = await fetch(`/api/admin/quotes/${encodeURIComponent(quote.id)}/send`, {
+        method: 'POST',
+        headers: { authorization: 'Bearer ' + await adminToken() },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'We could not send the quote right now.');
+      setNotice({ type: 'success', text: payload.message || `${quote.quote_number} sent.` });
+      await loadData();
+    } catch (error) {
+      await handleAppError(error instanceof Error ? error.message : 'We could not send the quote right now.');
+    } finally {
+      setBusy('');
+    }
   }
 
   async function updateProductCategory(product: Product, categoryId: string) {
@@ -1257,9 +1357,9 @@ export default function AdminApp() {
         {view === 'edit-product' && <EditProduct products={products} productSpecifications={productSpecifications} productModelAnalysis={productModelAnalysis} busy={busy} updateProduct={updateProduct} loadProductForm={loadProductForm} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} productId={selectedEditProductId} primaryImageUrl={selectedEditImageUrl} imageAltText={imageAltText} setImageAltText={setImageAltText} supabase={supabase} onModelSaved={(analysis) => setProductModelAnalysis((current) => ({ ...current, [selectedEditProductId]: analysis }))} />}
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} updateCategory={updateCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} categoryDescription={categoryDescription} setCategoryDescription={setCategoryDescription} categorySeoTitle={categorySeoTitle} setCategorySeoTitle={setCategorySeoTitle} categorySeoDescription={categorySeoDescription} setCategorySeoDescription={setCategorySeoDescription} />}
         {view === 'orders' && <Orders orders={orders} orderItems={orderItems} orderHistory={orderHistory} busy={busy} refresh={() => loadData()} updateOrderStatus={updateOrderStatus} />}
-        {view === 'quotes' && <Quotes quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} quotesReady={quotesReady} busy={busy} refresh={() => loadData()} deleteQuote={deleteQuote} updateQuoteStatus={updateQuoteStatus} />}
+        {view === 'quotes' && <Quotes quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} quoteDocuments={quoteDocuments} quotesReady={quotesReady} busy={busy} refresh={() => loadData()} deleteQuote={deleteQuote} updateQuoteStatus={updateQuoteStatus} generateQuotePdf={generateQuotePdf} downloadQuotePdf={downloadQuotePdf} sendQuote={sendQuote} />}
         {view === 'new-quote' && <QuoteEditor mode="new" products={products} busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
-        {view === 'edit-quote' && <EditQuote quoteId={selectedEditQuoteId} products={products} quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} busy={busy} quotesReady={quotesReady} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
+        {view === 'edit-quote' && <EditQuote quoteId={selectedEditQuoteId} products={products} quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} quoteDocuments={quoteDocuments} busy={busy} quotesReady={quotesReady} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} generateQuotePdf={generateQuotePdf} downloadQuotePdf={downloadQuotePdf} sendQuote={sendQuote} />}
       </main>
     </div>
     {previewImage && <div className="admin-image-modal" role="dialog" aria-modal="true" aria-label="Product image preview" onClick={() => setPreviewImage(null)}><div><button type="button" aria-label="Close image preview" onClick={() => setPreviewImage(null)}>Close</button><img src={previewImage.src} alt={previewImage.alt} /></div></div>}
@@ -1342,7 +1442,7 @@ function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderSt
   </>;
 }
 
-function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, busy, refresh, deleteQuote, updateQuoteStatus }: { quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; quotesReady: boolean; busy: string; refresh: () => void; deleteQuote: (quote: Quote) => void; updateQuoteStatus: (quote: Quote, status: QuoteStatus) => void }) {
+function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quoteDocuments, quotesReady, busy, refresh, deleteQuote, updateQuoteStatus, generateQuotePdf, downloadQuotePdf, sendQuote }: { quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; quoteDocuments: Record<string, QuoteDocument>; quotesReady: boolean; busy: string; refresh: () => void; deleteQuote: (quote: Quote) => void; updateQuoteStatus: (quote: Quote, status: QuoteStatus) => void; generateQuotePdf: (quote: Quote) => void; downloadQuotePdf: (quote: Quote) => void; sendQuote: (quote: Quote) => void }) {
   const [activeGroup, setActiveGroup] = useState(QUOTE_GROUPS[0].key);
   const [confirmDeleteId, setConfirmDeleteId] = useState('');
   const draftCount = quotes.filter((quote) => quote.status === 'draft').length;
@@ -1379,6 +1479,7 @@ function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, 
         const items = quoteItems[quote.id] || [];
         const history = quoteHistory[quote.id] || [];
         const request = quote.quote_request_id ? quoteRequests[quote.quote_request_id] : null;
+        const document = quoteDocuments[quote.id];
         return <details className="admin-order-card admin-order-collapsible admin-quote-card" key={quote.id}>
           <summary className="admin-order-summary">
             <div><span className="admin-order-number">{quote.quote_number}</span><h2>{quote.customer_name}</h2><p>{quoteSourceLabel(quote.source)} · {formatDateTime(quote.created_at)}</p></div>
@@ -1408,12 +1509,13 @@ function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, 
             <div className="admin-quote-action-buttons">
               <a className="admin-button secondary" href={`/admin/quotes?edit=${encodeURIComponent(quote.id)}`}>Edit Quote</a>
               <QuoteStatusControls status={quote.status} busy={busy === `quote-status-${quote.id}`} onChange={(nextStatus) => updateQuoteStatus(quote, nextStatus)} />
+              <QuoteDocumentActions quote={quote} document={document} busy={busy} generateQuotePdf={generateQuotePdf} downloadQuotePdf={downloadQuotePdf} sendQuote={sendQuote} />
               {['draft', 'cancelled'].includes(quote.status) && (confirmDeleteId === quote.id ? <>
                 <button className="admin-button danger" type="button" disabled={busy === `quote-delete-${quote.id}`} onClick={() => deleteQuote(quote)}>{busy === `quote-delete-${quote.id}` ? 'Deleting...' : 'Confirm Delete'}</button>
                 <button className="admin-button secondary" type="button" onClick={() => setConfirmDeleteId('')}>Keep Quote</button>
               </> : <button className="admin-button secondary" type="button" onClick={() => setConfirmDeleteId(quote.id)}>Delete Quote</button>)}
             </div>
-            <div><span>Next phase</span><strong>PDF and sending</strong><small>These actions will be added after quote preview is approved.</small></div>
+            <div><span>PDF</span><strong>{document ? `Version ${document.version_number}` : 'Not generated yet'}</strong><small>{quote.email ? `Recipient: ${quote.email}` : 'Add a customer email before sending.'}</small></div>
           </div>
           </div>
         </details>;
@@ -1435,6 +1537,20 @@ function QuoteStatusControls({ status, busy, onChange }: { status: QuoteStatus; 
   </>;
 }
 
+function QuoteDocumentActions({ quote, document, busy, generateQuotePdf, downloadQuotePdf, sendQuote }: { quote: Quote; document?: QuoteDocument; busy: string; generateQuotePdf: (quote: Quote) => void; downloadQuotePdf: (quote: Quote) => void; sendQuote: (quote: Quote) => void }) {
+  const [confirmingSend, setConfirmingSend] = useState(false);
+  const canGenerate = quote.status !== 'cancelled';
+  const canSend = Boolean(quote.email) && ['ready_to_send', 'sent', 'viewed'].includes(quote.status);
+  return <>
+    <button className="admin-button secondary" type="button" disabled={!canGenerate || busy === `quote-pdf-${quote.id}`} onClick={() => generateQuotePdf(quote)}>{busy === `quote-pdf-${quote.id}` ? 'Generating...' : 'Generate PDF'}</button>
+    {document && <button className="admin-button secondary" type="button" disabled={busy === `quote-download-${quote.id}`} onClick={() => downloadQuotePdf(quote)}>{busy === `quote-download-${quote.id}` ? 'Downloading...' : 'Download PDF'}</button>}
+    {confirmingSend ? <>
+      <button className="admin-button success" type="button" disabled={busy === `quote-send-${quote.id}`} onClick={() => { setConfirmingSend(false); sendQuote(quote); }}>{busy === `quote-send-${quote.id}` ? 'Sending...' : `Confirm Send`}</button>
+      <button className="admin-button secondary" type="button" disabled={busy === `quote-send-${quote.id}`} onClick={() => setConfirmingSend(false)}>Cancel Send</button>
+    </> : <button className="admin-button success" type="button" disabled={!canSend || busy === `quote-send-${quote.id}`} title={!quote.email ? 'Add a customer email before sending.' : !canSend ? 'Mark the quote ready before sending.' : undefined} onClick={() => setConfirmingSend(true)}>{busy === `quote-send-${quote.id}` ? 'Sending...' : quote.status === 'sent' || quote.status === 'viewed' ? 'Resend Quote' : 'Send Quote'}</button>}
+  </>;
+}
+
 function blankQuoteItem(sortOrder = 0): QuoteItem {
   return {
     sort_order: sortOrder,
@@ -1448,7 +1564,7 @@ function blankQuoteItem(sortOrder = 0): QuoteItem {
   };
 }
 
-function QuoteEditor({ mode, quote, request, items = [], history = [], products, busy, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { mode: 'new' | 'edit'; quote?: Quote; request?: QuoteRequest | null; items?: QuoteItem[]; history?: QuoteStatusHistory[]; products: Product[]; busy: string; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
+function QuoteEditor({ mode, quote, request, items = [], history = [], document, products, busy, aiEnabled, extractQuoteDraft, saveQuoteDraft, generateQuotePdf, downloadQuotePdf, sendQuote }: { mode: 'new' | 'edit'; quote?: Quote; request?: QuoteRequest | null; items?: QuoteItem[]; history?: QuoteStatusHistory[]; document?: QuoteDocument; products: Product[]; busy: string; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void; generateQuotePdf?: (quote: Quote) => void; downloadQuotePdf?: (quote: Quote) => void; sendQuote?: (quote: Quote) => void }) {
   const [source, setSource] = useState<QuoteSource>(quote?.source || 'manual');
   const [status, setStatus] = useState<QuoteStatus>(quote?.status || 'draft');
   const [startMode, setStartMode] = useState<'blank' | 'notes'>(request?.raw_message || request?.summary ? 'notes' : 'blank');
@@ -1621,7 +1737,7 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], products,
   }
 
   return <form onSubmit={submit}>
-    <PageHeader title={mode === 'edit' ? `Quote ${quote?.quote_number || ''}` : 'Create Quote'} eyebrow={mode === 'edit' ? 'Review and update a manual draft quote.' : 'Start a manually priced quote for custom work.'} actions={<><a className="admin-button secondary" href="/admin/quotes">Back to Quotes</a><button className="admin-button secondary" type="button" onClick={() => setPreviewOpen(!previewOpen)}>{previewOpen ? 'Hide Preview' : 'Preview Quote'}</button><button className="admin-button primary" type="submit" disabled={busy === 'quote-save'}>{busy === 'quote-save' ? 'Saving...' : 'Save Draft'}</button></>} />
+    <PageHeader title={mode === 'edit' ? `Quote ${quote?.quote_number || ''}` : 'Create Quote'} eyebrow={mode === 'edit' ? 'Review, generate and send a customer quote.' : 'Start a manually priced quote for custom work.'} actions={<><a className="admin-button secondary" href="/admin/quotes">Back to Quotes</a><button className="admin-button secondary" type="button" onClick={() => setPreviewOpen(!previewOpen)}>{previewOpen ? 'Hide Preview' : 'Preview Quote'}</button>{quote && generateQuotePdf && downloadQuotePdf && sendQuote && <QuoteDocumentActions quote={quote} document={document} busy={busy} generateQuotePdf={generateQuotePdf} downloadQuotePdf={downloadQuotePdf} sendQuote={sendQuote} />}<button className="admin-button primary" type="submit" disabled={busy === 'quote-save'}>{busy === 'quote-save' ? 'Saving...' : 'Save Draft'}</button></>} />
     {previewOpen && <QuotePreview
       quoteNumber={quote?.quote_number || 'Draft quote'}
       status={status}
@@ -1817,12 +1933,12 @@ function QuotePreview({ quoteNumber, status, source, customerName, companyName, 
   </section>;
 }
 
-function EditQuote({ quoteId, products, quotes, quoteItems, quoteHistory, quoteRequests, busy, quotesReady, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { quoteId: string; products: Product[]; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; busy: string; quotesReady: boolean; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
+function EditQuote({ quoteId, products, quotes, quoteItems, quoteHistory, quoteRequests, quoteDocuments, busy, quotesReady, aiEnabled, extractQuoteDraft, saveQuoteDraft, generateQuotePdf, downloadQuotePdf, sendQuote }: { quoteId: string; products: Product[]; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; quoteDocuments: Record<string, QuoteDocument>; busy: string; quotesReady: boolean; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void; generateQuotePdf: (quote: Quote) => void; downloadQuotePdf: (quote: Quote) => void; sendQuote: (quote: Quote) => void }) {
   if (!quotesReady) return <><PageHeader title="Quotes" eyebrow="Create and manage custom Vert quotes." /><EmptyState title="Quote system migration needed." text="Run the latest Supabase quoting migration before editing quotes." /></>;
   const quote = quotes.find((item) => item.id === quoteId);
   if (busy === 'loading') return <section className="admin-card"><p className="admin-muted">Loading quote...</p></section>;
   if (!quote) return <EmptyState title="Quote not found." text="This quote could not be loaded. Return to the quote list and try again." action={<a className="admin-button secondary" href="/admin/quotes">Back to Quotes</a>} />;
-  return <QuoteEditor mode="edit" quote={quote} request={quote.quote_request_id ? quoteRequests[quote.quote_request_id] : null} items={quoteItems[quote.id] || []} history={quoteHistory[quote.id] || []} products={products} busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />;
+  return <QuoteEditor mode="edit" quote={quote} request={quote.quote_request_id ? quoteRequests[quote.quote_request_id] : null} items={quoteItems[quote.id] || []} history={quoteHistory[quote.id] || []} document={quoteDocuments[quote.id]} products={products} busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} generateQuotePdf={generateQuotePdf} downloadQuotePdf={downloadQuotePdf} sendQuote={sendQuote} />;
 }
 
 function Products({ products, productImages, productCategories, categories, supabase, busy, navigate, togglePublish, uploadProductImage, setPreviewImage, updateProductCategory }: { products: Product[]; productImages: Record<string, ProductImage>; productCategories: ProductCategory[]; categories: Category[]; supabase: SupabaseClient | null; busy: string; navigate: (path: string) => void; togglePublish: (product: Product) => void; uploadProductImage: (product: Product, files: FileList | null) => void; setPreviewImage: (image: { src: string; alt: string } | null) => void; updateProductCategory: (product: Product, categoryId: string) => void }) {
