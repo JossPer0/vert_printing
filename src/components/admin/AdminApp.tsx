@@ -359,6 +359,15 @@ const QUOTE_STATUSES: { value: QuoteStatus; label: string; tone: 'success' | 'ne
   { value: 'cancelled', label: 'Cancelled', tone: 'neutral' },
 ];
 
+const QUOTE_GROUPS: { key: string; label: string; statuses: QuoteStatus[] | 'all' }[] = [
+  { key: 'drafts', label: 'Drafts', statuses: ['draft'] },
+  { key: 'ready', label: 'Ready', statuses: ['ready_to_send'] },
+  { key: 'sent', label: 'Sent / Viewed', statuses: ['sent', 'viewed'] },
+  { key: 'accepted', label: 'Accepted', statuses: ['accepted'] },
+  { key: 'closed', label: 'Closed', statuses: ['declined', 'expired', 'converted_to_order', 'cancelled'] },
+  { key: 'all', label: 'All', statuses: 'all' },
+];
+
 const QUOTE_SOURCES: { value: QuoteSource; label: string }[] = [
   { value: 'manual', label: 'Manual' },
   { value: 'whatsapp', label: 'WhatsApp' },
@@ -1248,9 +1257,13 @@ function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderSt
 }
 
 function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, busy, refresh }: { quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; quotesReady: boolean; busy: string; refresh: () => void }) {
+  const [activeGroup, setActiveGroup] = useState(QUOTE_GROUPS[0].key);
   const draftCount = quotes.filter((quote) => quote.status === 'draft').length;
   const readyCount = quotes.filter((quote) => quote.status === 'ready_to_send').length;
   const recentValue = quotes.reduce((sum, quote) => sum + Number(quote.grand_total || 0), 0);
+  const selectedGroup = QUOTE_GROUPS.find((group) => group.key === activeGroup) || QUOTE_GROUPS[0];
+  const visibleQuotes = selectedGroup.statuses === 'all' ? quotes : quotes.filter((quote) => selectedGroup.statuses.includes(quote.status));
+  const groupCount = (statuses: QuoteStatus[] | 'all') => statuses === 'all' ? quotes.length : quotes.filter((quote) => statuses.includes(quote.status)).length;
 
   if (!quotesReady) {
     return <><PageHeader title="Quotes" eyebrow="Create and manage custom Vert quotes." /><EmptyState title="Quote system migration needed." text="Run the latest Supabase quoting migration before using the quote manager." /></>;
@@ -1264,16 +1277,27 @@ function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, 
       <article><span>Ready</span><strong>{readyCount}</strong></article>
       <article><span>Recent Value</span><strong>{formatMoney(recentValue)}</strong></article>
     </section>
-    {quotes.length ? <section className="admin-orders-list admin-quotes-list">
-      {quotes.map((quote) => {
+    {quotes.length ? <>
+      <section className="admin-order-tabs" aria-label="Quote status filters">
+        {QUOTE_GROUPS.map((group) => {
+          const count = groupCount(group.statuses);
+          return <button key={group.key} className={activeGroup === group.key ? 'active' : ''} type="button" onClick={() => setActiveGroup(group.key)} aria-pressed={activeGroup === group.key}>
+            <span>{group.label}</span>
+            <strong>{count}</strong>
+          </button>;
+        })}
+      </section>
+      {visibleQuotes.length ? <section className="admin-orders-list admin-quotes-list">
+      {visibleQuotes.map((quote) => {
         const items = quoteItems[quote.id] || [];
         const history = quoteHistory[quote.id] || [];
         const request = quote.quote_request_id ? quoteRequests[quote.quote_request_id] : null;
-        return <article className="admin-order-card admin-quote-card" key={quote.id}>
-          <div className="admin-order-summary">
+        return <details className="admin-order-card admin-order-collapsible admin-quote-card" key={quote.id}>
+          <summary className="admin-order-summary">
             <div><span className="admin-order-number">{quote.quote_number}</span><h2>{quote.customer_name}</h2><p>{quoteSourceLabel(quote.source)} · {formatDateTime(quote.created_at)}</p></div>
             <div className="admin-order-total"><Badge tone={quoteStatusTone(quote.status)}>{quoteStatusLabel(quote.status)}</Badge><strong>{formatMoney(Number(quote.grand_total))}</strong></div>
-          </div>
+          </summary>
+          <div className="admin-order-body">
           {request?.summary && <div className="admin-quote-intake-preview"><strong>Intake notes</strong><p>{request.summary}</p></div>}
           <div className="admin-order-grid">
             <div>
@@ -1297,9 +1321,11 @@ function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, 
             <a className="admin-button secondary" href={`/admin/quotes?edit=${encodeURIComponent(quote.id)}`}>Edit Quote</a>
             <div><span>Phase Q1a</span><strong>Manual draft only</strong><small>PDF sending and acceptance come later.</small></div>
           </div>
-        </article>;
+          </div>
+        </details>;
       })}
-    </section> : <EmptyState title="No quotes yet." text="Create a blank quote for a phone call, walk-in or manually priced custom job." action={<a className="admin-button primary" href="/admin/quotes/new">+ New Quote</a>} />}
+    </section> : <EmptyState title={`No ${selectedGroup.label.toLowerCase()} quotes.`} text="Choose another quote category or create a new manual quote." action={<a className="admin-button primary" href="/admin/quotes/new">+ New Quote</a>} />}
+    </> : <EmptyState title="No quotes yet." text="Create a blank quote for a phone call, walk-in or manually priced custom job." action={<a className="admin-button primary" href="/admin/quotes/new">+ New Quote</a>} />}
   </>;
 }
 
