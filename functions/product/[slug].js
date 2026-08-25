@@ -1,3 +1,5 @@
+const SITE_URL = 'https://www.vertprinting.co.za';
+
 const escapeHtml = (value = '') =>
   String(value)
     .replaceAll('&', '&amp;')
@@ -73,6 +75,31 @@ function renderProductInfoSections(product) {
   return `<div class="product-info-sections">${sections.map(([title, value]) => `<article><h2>${escapeHtml(title)}</h2><p>${nl2br(value)}</p></article>`).join('')}</div>`;
 }
 
+function inFilter(values) {
+  return `(${values.map((value) => `"${String(value).replaceAll('"', '\\"')}"`).join(',')})`;
+}
+
+function renderRelatedProducts(relatedProducts, imagesByProduct = {}, category) {
+  if (!relatedProducts.length) return '';
+  return `<section class="product-related">
+    <div class="product-related-heading">
+      <div><p class="section-kicker">More to browse</p><h2>${category ? `More in ${escapeHtml(category.name)}` : 'More from the Vert shop'}</h2></div>
+      <a class="shop-quote-link" href="${category ? `/shop/category/${encodeURIComponent(category.slug)}` : '/shop/'}">${category ? 'View category' : 'View shop'} -&gt;</a>
+    </div>
+    <div class="shop-grid">${relatedProducts.map((product) => {
+      const image = imagesByProduct[product.id];
+      const imageUrl = image ? image.publicUrl : '';
+      const quoteOnly = product.pricing_mode === 'quote_only' || product.product_type === 'quote_only' || product.base_price === null;
+      const href = quoteOnly ? `/?product=${encodeURIComponent(product.name)}#quote` : `/product/${encodeURIComponent(product.slug)}`;
+      const cta = quoteOnly ? 'Request a Quote' : product.product_type === 'configurable' || product.pricing_mode === 'from_price' ? 'Choose Options' : 'View Product';
+      return `<article class="shop-card">
+        <a class="shop-card-image" href="${escapeHtml(href)}" aria-label="${escapeHtml(cta)} for ${escapeHtml(product.name)}">${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image.alt_text || product.name)}" loading="lazy" />` : '<span>No image available</span>'}</a>
+        <div class="shop-card-body"><div>${category ? `<a class="shop-card-category" href="/shop/category/${encodeURIComponent(category.slug)}">${escapeHtml(category.name)}</a>` : ''}<h2>${escapeHtml(product.name)}</h2><span class="shop-support">${escapeHtml(product.short_description || 'Vert Printing product')}</span></div><strong>${escapeHtml(productPrice(product))}</strong><a class="button primary" href="${escapeHtml(href)}">${escapeHtml(cta)}</a></div>
+      </article>`;
+    }).join('')}</div>
+  </section>`;
+}
+
 function renderProductCta(product, quoteHref, cta) {
   const productName = escapeHtml(product.name);
   if (product.pricing_mode === 'quote_only' || product.product_type === 'quote_only') return `<a class="button primary" data-product-name="${productName}" href="${quoteHref}">${escapeHtml(cta)}</a>`;
@@ -131,6 +158,50 @@ async function supabaseGet(env, path) {
   return response.json();
 }
 
+async function fetchProductCategories(env, productId) {
+  try {
+    const relations = await supabaseGet(env, `product_categories?select=category_id&product_id=eq.${encodeURIComponent(productId)}`);
+    const categoryIds = relations.map((relation) => relation.category_id).filter(Boolean);
+    if (!categoryIds.length) return [];
+    return supabaseGet(
+      env,
+      `categories?select=id,name,slug,description&is_active=eq.true&id=in.${encodeURIComponent(inFilter(categoryIds))}&order=sort_order.asc,name.asc`,
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRelatedProducts(env, product, category) {
+  if (!category) return { products: [], imagesByProduct: {} };
+  try {
+    const relations = await supabaseGet(env, `product_categories?select=product_id&category_id=eq.${encodeURIComponent(category.id)}`);
+    const relatedIds = relations.map((relation) => relation.product_id).filter((id) => id && id !== product.id);
+    if (!relatedIds.length) return { products: [], imagesByProduct: {} };
+    const relatedProducts = await supabaseGet(
+      env,
+      `products?select=id,name,slug,product_type,pricing_mode,base_price,short_description&is_active=eq.true&is_published=eq.true&archived_at=is.null&id=in.${encodeURIComponent(inFilter(relatedIds))}&order=created_at.desc&limit=3`,
+    );
+    const imagesByProduct = {};
+    if (relatedProducts.length) {
+      const imageRows = await supabaseGet(
+        env,
+        `product_images?select=product_id,storage_path,alt_text,sort_order&product_id=in.${encodeURIComponent(inFilter(relatedProducts.map((item) => item.id)))}&order=sort_order.asc`,
+      );
+      for (const image of imageRows) {
+        if (imagesByProduct[image.product_id]) continue;
+        imagesByProduct[image.product_id] = {
+          ...image,
+          publicUrl: `${env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${image.storage_path}`,
+        };
+      }
+    }
+    return { products: relatedProducts, imagesByProduct };
+  } catch {
+    return { products: [], imagesByProduct: {} };
+  }
+}
+
 export async function onRequestGet({ env, params }) {
   const slug = params.slug;
   if (!env.PUBLIC_SUPABASE_URL || !env.PUBLIC_SUPABASE_ANON_KEY || !slug) {
@@ -164,6 +235,9 @@ export async function onRequestGet({ env, params }) {
     specifications = [];
   }
   const image = images[0];
+  const categories = await fetchProductCategories(env, product.id);
+  const primaryCategory = categories[0];
+  const related = await fetchRelatedProducts(env, product, primaryCategory);
   const imageUrl = image ? `${env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${image.storage_path}` : '';
   const quoteHref = `/?product=${encodeURIComponent(product.name)}#quote`;
   const price = productPrice(product);
@@ -179,7 +253,8 @@ export async function onRequestGet({ env, params }) {
     name: product.name,
     description,
     image: imageUrl || undefined,
-    url: `https://www.vertprinting.co.za/product/${product.slug}`,
+    url: `${SITE_URL}/product/${product.slug}`,
+    category: primaryCategory?.name || undefined,
   };
   if (product.base_price !== null && product.pricing_mode !== 'quote_only') {
     productJson.offers = {
@@ -197,26 +272,32 @@ export async function onRequestGet({ env, params }) {
         '@type': 'ListItem',
         position: 1,
         name: 'Home',
-        item: 'https://www.vertprinting.co.za/',
+        item: `${SITE_URL}/`,
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Shop',
-        item: 'https://www.vertprinting.co.za/shop/',
+        item: `${SITE_URL}/shop/`,
       },
-      {
+      ...(primaryCategory ? [{
         '@type': 'ListItem',
         position: 3,
+        name: primaryCategory.name,
+        item: `${SITE_URL}/shop/category/${primaryCategory.slug}`,
+      }] : []),
+      {
+        '@type': 'ListItem',
+        position: primaryCategory ? 4 : 3,
         name: product.name,
-        item: `https://www.vertprinting.co.za/product/${product.slug}`,
+        item: `${SITE_URL}/product/${product.slug}`,
       },
     ],
   };
   const structuredData = `<script type="application/ld+json">${JSON.stringify(productJson)}</script><script type="application/ld+json">${JSON.stringify(breadcrumbJson)}</script>`;
 
   const body = `<section class="product-detail">
-    <nav class="product-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><a href="/shop/">Shop</a><span>/</span><span>${escapeHtml(product.name)}</span></nav>
+    <nav class="product-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><a href="/shop/">Shop</a>${primaryCategory ? `<span>/</span><a href="/shop/category/${encodeURIComponent(primaryCategory.slug)}">${escapeHtml(primaryCategory.name)}</a>` : ''}<span>/</span><span>${escapeHtml(product.name)}</span></nav>
     <div class="product-detail-grid">
       <div class="product-media-frame">${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image?.alt_text || product.name)}" />` : '<span>No image available</span>'}</div>
       <div class="product-summary">
@@ -231,9 +312,10 @@ export async function onRequestGet({ env, params }) {
       </div>
     </div>
     ${infoSectionsMarkup || specsMarkup ? `<div class="product-detail-info">${infoSectionsMarkup}${specsMarkup ? `<section class="product-spec-panel"><h2>Specifications</h2>${specsMarkup}</section>` : ''}</div>` : ''}
+    ${renderRelatedProducts(related.products, related.imagesByProduct, primaryCategory)}
   </section>`;
 
-  return new Response(pageShell({ title: product.seo_title || `${product.name} | Vert Printing`, description, canonical: `https://www.vertprinting.co.za/product/${product.slug}`, body, structuredData }), {
+  return new Response(pageShell({ title: product.seo_title || `${product.name} | Vert Printing`, description, canonical: `${SITE_URL}/product/${product.slug}`, body, structuredData }), {
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'public, max-age=60',

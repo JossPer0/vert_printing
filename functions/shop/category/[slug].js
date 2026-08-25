@@ -24,7 +24,7 @@ function productCta(product) {
   return 'View Product';
 }
 
-function pageShell({ title, description, canonical, body }) {
+function pageShell({ title, description, canonical, body, structuredData = '' }) {
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -42,6 +42,7 @@ function pageShell({ title, description, canonical, body }) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
+    ${structuredData}
   </head>
   <body class="shop-page">
     <header class="site-header">
@@ -123,9 +124,34 @@ export async function onRequestGet({ env, params }) {
   const title = category.seo_title || `${category.name} | Vert Printing Shop`;
   const description = category.seo_description || category.description || `Browse ${category.name} products from Vert Printing in Kloof.`;
   const canonical = `${SITE_URL}/shop/category/${category.slug}`;
-  const body = `<section class="shop-hero shop-container"><p class="section-kicker">Shop category</p><h1>${escapeHtml(category.name)}</h1><p>${escapeHtml(category.description || 'Browse products in this Vert Printing category.')} <a class="shop-quote-link" href="/shop/">View all products -&gt;</a></p></section><section class="shop-section"><div class="shop-container">${renderProducts(products, imagesByProduct)}</div></section>`;
+  const breadcrumbJson = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: `${SITE_URL}/`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Shop',
+        item: `${SITE_URL}/shop/`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: category.name,
+        item: canonical,
+      },
+    ],
+  };
+  const structuredData = `<script type="application/ld+json">${JSON.stringify(breadcrumbJson)}</script>`;
+  const body = `<section class="shop-hero shop-container"><nav class="product-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><a href="/shop/">Shop</a><span>/</span><span>${escapeHtml(category.name)}</span></nav><p class="section-kicker">Shop category</p><h1>${escapeHtml(category.name)}</h1><p>${escapeHtml(category.description || 'Browse products in this Vert Printing category.')} <a class="shop-quote-link" href="/shop/">View all products -&gt;</a></p></section><section class="shop-section"><div class="shop-container">${renderProducts(products, imagesByProduct)}</div></section>`;
 
-  return new Response(pageShell({ title, description, canonical, body }), {
+  return new Response(pageShell({ title, description, canonical, body, structuredData }), {
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'public, max-age=60',

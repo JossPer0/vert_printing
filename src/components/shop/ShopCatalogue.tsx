@@ -101,7 +101,7 @@ function ProductCard({
   product,
   image,
   imageUrl,
-  categoryName,
+  category,
   hasOptions,
   added,
   onAddToCart,
@@ -109,7 +109,7 @@ function ProductCard({
   product: Product;
   image?: ProductImage;
   imageUrl?: string;
-  categoryName?: string;
+  category?: Category;
   hasOptions: boolean;
   added: boolean;
   onAddToCart: (product: Product) => void;
@@ -123,7 +123,7 @@ function ProductCard({
     </a>
     <div className="shop-card-body">
       <div>
-        {categoryName && <p>{categoryName}</p>}
+        {category && <a className="shop-card-category" href={`/shop/category/${category.slug}`}>{category.name}</a>}
         <h2>{product.name}</h2>
         <span className="shop-support">{productSupportText(product, hasOptions)}</span>
       </div>
@@ -322,8 +322,8 @@ export default function ShopCatalogue({ initialCatalogue }: { initialCatalogue?:
     <div className="shop-container">
     <div className="shop-controls" aria-label="Shop filters">
       {visibleCategories.length > 0 && <div className="shop-categories" aria-label="Product categories">
-        <button className={activeCategory === 'all' ? 'active' : ''} type="button" aria-pressed={activeCategory === 'all'} onClick={() => setActiveCategory('all')}>All</button>
-        {visibleCategories.map((category) => <button className={activeCategory === category.id ? 'active' : ''} key={category.id} type="button" aria-pressed={activeCategory === category.id} onClick={() => setActiveCategory(category.id)}>{category.name}</button>)}
+        <a className={activeCategory === 'all' ? 'active' : ''} href="/shop/" aria-current={activeCategory === 'all' ? 'page' : undefined} onClick={(event) => { event.preventDefault(); setActiveCategory('all'); }}>All</a>
+        {visibleCategories.map((category) => <a className={activeCategory === category.id ? 'active' : ''} href={`/shop/category/${category.slug}`} key={category.id} aria-current={activeCategory === category.id ? 'page' : undefined} onClick={(event) => { event.preventDefault(); setActiveCategory(category.id); }}>{category.name}</a>)}
       </div>}
       <div className="shop-toolbar">
         <label><span>Search products</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products..." /></label>
@@ -332,7 +332,7 @@ export default function ShopCatalogue({ initialCatalogue }: { initialCatalogue?:
       </div>
     </div>
 
-    {filteredProducts.length ? <div className="shop-grid">{filteredProducts.map((product) => <ProductCard key={product.id} product={product} image={images[product.id]} imageUrl={imageUrls[product.id]} categoryName={categoryByProduct[product.id]?.name} hasOptions={productsWithOptionsSet.has(product.id)} added={addedProductId === product.id} onAddToCart={addProductToCart} />)}</div> : <div className="shop-empty"><h2>No products matched your search.</h2><p>Try another search or browse all products.</p><button className="button primary" type="button" onClick={() => { setSearch(''); setActiveCategory('all'); }}>View All Products</button></div>}
+    {filteredProducts.length ? <div className="shop-grid">{filteredProducts.map((product) => <ProductCard key={product.id} product={product} image={images[product.id]} imageUrl={imageUrls[product.id]} category={categoryByProduct[product.id]} hasOptions={productsWithOptionsSet.has(product.id)} added={addedProductId === product.id} onAddToCart={addProductToCart} />)}</div> : <div className="shop-empty"><h2>No products matched your search.</h2><p>Try another search or browse all products.</p><button className="button primary" type="button" onClick={() => { setSearch(''); setActiveCategory('all'); }}>View All Products</button></div>}
     </div>
     {cartConfirmation && <CartConfirmationModal item={cartConfirmation} onClose={() => setCartConfirmation(null)} />}
   </>;
