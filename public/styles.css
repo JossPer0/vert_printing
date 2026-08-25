@@ -2043,17 +2043,24 @@ h3 {
 
 .admin-quote-status-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
   align-items: center;
-  margin-top: 6px;
+  margin-top: 14px;
   border: 1px solid rgba(0, 124, 122, 0.18);
   border-radius: 10px;
-  padding: 14px;
+  padding: 16px;
   background: #f7fbfa;
 }
 
-.admin-quote-status-panel span,
+.admin-quote-status-copy {
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-quote-status-copy span,
 .admin-quote-preview-meta span,
 .admin-quote-preview-note span,
 .admin-quote-preview-totals span,
@@ -2064,16 +2071,32 @@ h3 {
   text-transform: uppercase;
 }
 
-.admin-quote-status-panel strong {
+.admin-quote-status-copy strong {
   display: block;
-  margin-top: 3px;
+  margin: 0;
   color: var(--admin-text);
+  font-size: 1rem;
+  line-height: 1.25;
 }
 
-.admin-quote-status-panel small {
+.admin-quote-status-copy small {
   display: block;
-  margin-top: 4px;
+  margin-top: 7px;
   color: var(--admin-muted);
+  line-height: 1.45;
+}
+
+.admin-quote-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 124, 122, 0.16);
+}
+
+.admin-quote-status-actions .admin-button {
+  min-width: 124px;
 }
 
 .admin-quote-intake-preview {
@@ -2764,6 +2787,10 @@ h3 {
     justify-content: flex-start;
   }
 
+  .admin-quote-status-actions {
+    justify-content: flex-start;
+  }
+
   .admin-quote-preview-line {
     grid-template-columns: minmax(0, 1fr) 64px 96px 104px;
   }
@@ -2918,6 +2945,12 @@ h3 {
     width: 100%;
   }
 
+  .admin-quote-status-copy {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .admin-quote-status-actions,
   .admin-quote-status-panel .admin-quote-action-buttons,
   .admin-quote-status-panel .admin-button {
     width: 100%;

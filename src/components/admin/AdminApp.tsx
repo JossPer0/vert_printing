@@ -1774,12 +1774,14 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], document,
           <label className="admin-toggle admin-quote-tax-toggle"><input type="checkbox" checked={pricesIncludeTax} onChange={(event) => setPricesIncludeTax(event.target.checked)} /><span>Prices include VAT where applicable</span></label>
         </div>
         <div className="admin-quote-status-panel">
-          <div>
+          <div className="admin-quote-status-copy">
             <span>Quote status</span>
-            <strong>{quoteStatusLabel(status)}</strong>
-            <small>Use these actions instead of raw status values. Save the quote to keep the change.</small>
+            <div>
+              <strong>{quoteStatusLabel(status)}</strong>
+              <small>Save the quote to keep any status change.</small>
+            </div>
           </div>
-          <div className="admin-quote-action-buttons">
+          <div className="admin-quote-status-actions">
             <QuoteStatusControls status={status} onChange={setStatus} />
           </div>
         </div>
