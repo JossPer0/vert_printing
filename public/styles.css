@@ -2100,6 +2100,57 @@ h3 {
   color: var(--admin-muted);
 }
 
+.admin-quote-ai-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--admin-border);
+  padding-top: 14px;
+}
+
+.admin-quote-ai-row .admin-button {
+  min-width: 178px;
+}
+
+.admin-quote-ai-row p {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.admin-quote-ai-result {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(0, 124, 122, 0.24);
+  border-left: 4px solid var(--admin-teal);
+  border-radius: 10px;
+  padding: 16px;
+  background: #f7fbfa;
+}
+
+.admin-quote-ai-result strong,
+.admin-quote-ai-result span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--admin-teal);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.admin-quote-ai-result p {
+  margin: 0;
+  color: var(--admin-text);
+}
+
+.admin-quote-ai-result ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--admin-muted);
+}
+
 .admin-quote-tax-toggle {
   align-self: center;
   min-height: 44px;
@@ -2630,6 +2681,10 @@ h3 {
 
   .admin-choice-toggle button {
     flex: 1 1 140px;
+  }
+
+  .admin-quote-ai-row .admin-button {
+    width: 100%;
   }
 
   .admin-order-collapsible > .admin-order-summary {

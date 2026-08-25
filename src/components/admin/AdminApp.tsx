@@ -211,6 +211,26 @@ type QuoteIntakePayload = {
   summary: string;
   subject: string;
   requested_by_date: string;
+  ai_prepared?: boolean;
+};
+
+type QuoteExtraction = {
+  customer: {
+    name: string | null;
+    company: string | null;
+    email: string | null;
+    phone: string | null;
+  };
+  request_summary: string | null;
+  requested_items: Array<{
+    description: string;
+    quantity: number | null;
+    notes: string | null;
+  }>;
+  required_date: string | null;
+  artwork_present: boolean;
+  missing_information: string[];
+  warnings: string[];
 };
 
 type ProductInfoState = {
@@ -896,6 +916,21 @@ export default function AdminApp() {
     return payload.suggestions as AiSuggestions;
   }
 
+  async function extractQuoteDraft(request: { source: QuoteSource; raw_text: string; known_customer_data: { name: string; company: string; email: string; phone: string } }): Promise<QuoteExtraction> {
+    if (!supabase) throw new Error('Shop Manager is not configured.');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error('Your session has expired. Please sign in again.');
+    const response = await fetch('/api/admin/ai/quote-extract', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+      body: JSON.stringify(request),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || "We couldn't create a quote draft right now.");
+    return payload.extraction as QuoteExtraction;
+  }
+
   async function updateProductCategory(product: Product, categoryId: string) {
     if (!supabase) return;
     setBusy(`categories-${product.id}`);
@@ -1011,7 +1046,7 @@ export default function AdminApp() {
     if (intake?.enabled) {
       const requestBody = {
         source: payload.source,
-        status: 'draft',
+        status: intake.ai_prepared ? 'ai_prepared' : 'draft',
         customer_name: payload.customer_name.trim(),
         company_name: cleanText(payload.company_name || ''),
         email: cleanText(payload.email || ''),
@@ -1134,8 +1169,8 @@ export default function AdminApp() {
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} updateCategory={updateCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} categoryDescription={categoryDescription} setCategoryDescription={setCategoryDescription} categorySeoTitle={categorySeoTitle} setCategorySeoTitle={setCategorySeoTitle} categorySeoDescription={categorySeoDescription} setCategorySeoDescription={setCategorySeoDescription} />}
         {view === 'orders' && <Orders orders={orders} orderItems={orderItems} orderHistory={orderHistory} busy={busy} refresh={() => loadData()} updateOrderStatus={updateOrderStatus} />}
         {view === 'quotes' && <Quotes quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} quotesReady={quotesReady} busy={busy} refresh={() => loadData()} />}
-        {view === 'new-quote' && <QuoteEditor mode="new" busy={busy} saveQuoteDraft={saveQuoteDraft} />}
-        {view === 'edit-quote' && <EditQuote quoteId={selectedEditQuoteId} quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} busy={busy} quotesReady={quotesReady} saveQuoteDraft={saveQuoteDraft} />}
+        {view === 'new-quote' && <QuoteEditor mode="new" busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
+        {view === 'edit-quote' && <EditQuote quoteId={selectedEditQuoteId} quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} busy={busy} quotesReady={quotesReady} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
       </main>
     </div>
     {previewImage && <div className="admin-image-modal" role="dialog" aria-modal="true" aria-label="Product image preview" onClick={() => setPreviewImage(null)}><div><button type="button" aria-label="Close image preview" onClick={() => setPreviewImage(null)}>Close</button><img src={previewImage.src} alt={previewImage.alt} /></div></div>}
@@ -1287,7 +1322,7 @@ function blankQuoteItem(sortOrder = 0): QuoteItem {
   };
 }
 
-function QuoteEditor({ mode, quote, request, items = [], history = [], busy, saveQuoteDraft }: { mode: 'new' | 'edit'; quote?: Quote; request?: QuoteRequest | null; items?: QuoteItem[]; history?: QuoteStatusHistory[]; busy: string; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
+function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { mode: 'new' | 'edit'; quote?: Quote; request?: QuoteRequest | null; items?: QuoteItem[]; history?: QuoteStatusHistory[]; busy: string; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string; known_customer_data: { name: string; company: string; email: string; phone: string } }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
   const [source, setSource] = useState<QuoteSource>(quote?.source || 'manual');
   const [status, setStatus] = useState<QuoteStatus>(quote?.status || 'draft');
   const [startMode, setStartMode] = useState<'blank' | 'notes'>(request?.raw_message || request?.summary ? 'notes' : 'blank');
@@ -1295,6 +1330,9 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, sav
   const [intakeMessage, setIntakeMessage] = useState(request?.raw_message || '');
   const [intakeSummary, setIntakeSummary] = useState(request?.summary || '');
   const [requestedByDate, setRequestedByDate] = useState(request?.requested_by_date || '');
+  const [quoteExtraction, setQuoteExtraction] = useState<QuoteExtraction | null>(null);
+  const [quoteAiBusy, setQuoteAiBusy] = useState(false);
+  const [quoteAiError, setQuoteAiError] = useState('');
   const [customerName, setCustomerName] = useState(quote?.customer_name || '');
   const [companyName, setCompanyName] = useState(quote?.company_name || '');
   const [email, setQuoteEmail] = useState(quote?.email || '');
@@ -1318,6 +1356,8 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, sav
     setIntakeMessage(request?.raw_message || '');
     setIntakeSummary(request?.summary || '');
     setRequestedByDate(request?.requested_by_date || '');
+    setQuoteExtraction(null);
+    setQuoteAiError('');
     setCustomerName(quote.customer_name || '');
     setCompanyName(quote.company_name || '');
     setQuoteEmail(quote.email || '');
@@ -1350,6 +1390,44 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, sav
   const updateLine = (index: number, updates: Partial<QuoteItem>) => setQuoteLines(quoteLines.map((item, rowIndex) => rowIndex === index ? { ...item, ...updates } : item));
   const removeLine = (index: number) => setQuoteLines(quoteLines.length === 1 ? [blankQuoteItem()] : quoteLines.filter((_item, rowIndex) => rowIndex !== index).map((item, rowIndex) => ({ ...item, sort_order: rowIndex })));
 
+  async function createAiDraft() {
+    if (!intakeMessage.trim()) {
+      setQuoteAiError('Paste the customer message or call notes before using AI.');
+      return;
+    }
+    setQuoteAiBusy(true);
+    setQuoteAiError('');
+    try {
+      const extraction = await extractQuoteDraft({
+        source,
+        raw_text: intakeMessage,
+        known_customer_data: { name: customerName, company: companyName, email, phone },
+      });
+      setQuoteExtraction(extraction);
+      if (!customerName.trim() && extraction.customer.name) setCustomerName(extraction.customer.name);
+      if (!companyName.trim() && extraction.customer.company) setCompanyName(extraction.customer.company);
+      if (!email.trim() && extraction.customer.email) setQuoteEmail(extraction.customer.email);
+      if (!phone.trim() && extraction.customer.phone) setQuotePhone(extraction.customer.phone);
+      if (!intakeSummary.trim() && extraction.request_summary) setIntakeSummary(extraction.request_summary);
+      if (!requestedByDate && extraction.required_date && /^\d{4}-\d{2}-\d{2}$/.test(extraction.required_date)) setRequestedByDate(extraction.required_date);
+      const draftLines = extraction.requested_items
+        .map((item, index) => ({
+          ...blankQuoteItem(index),
+          description: item.notes ? `${item.description} - ${item.notes}` : item.description,
+          quantity: item.quantity && item.quantity > 0 ? item.quantity : 1,
+        }))
+        .filter((item) => item.description.trim());
+      if (draftLines.length) {
+        const hasOnlyBlankLine = quoteLines.length === 1 && !quoteLines[0].description.trim() && Number(quoteLines[0].unit_price || 0) === 0;
+        setQuoteLines(hasOnlyBlankLine ? draftLines : [...quoteLines, ...draftLines.map((line, index) => ({ ...line, sort_order: quoteLines.length + index }))]);
+      }
+    } catch (error) {
+      setQuoteAiError(error instanceof Error ? error.message : "We couldn't create a quote draft right now.");
+    } finally {
+      setQuoteAiBusy(false);
+    }
+  }
+
   function submit(event: AdminSubmitEvent) {
     event.preventDefault();
     const intakeEnabled = startMode === 'notes' || Boolean(request?.id);
@@ -1380,6 +1458,7 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, sav
       summary: intakeSummary,
       subject: intakeSubject,
       requested_by_date: requestedByDate,
+      ai_prepared: Boolean(quoteExtraction),
     });
   }
 
@@ -1407,12 +1486,12 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, sav
       <div className="admin-card admin-card-wide admin-quote-intake-card">
         <div className="admin-section-heading">
           <div>
-            <h2>Start From</h2>
+            <h2>Create Quote From</h2>
             <p className="admin-muted">Use a blank quote, or keep the original WhatsApp, email, phone or walk-in notes with this draft.</p>
           </div>
           <div className="admin-choice-toggle" role="group" aria-label="Quote starting point">
             <button className={startMode === 'blank' ? 'active' : ''} type="button" onClick={() => setStartMode('blank')}>Blank Quote</button>
-            <button className={startMode === 'notes' ? 'active' : ''} type="button" onClick={() => setStartMode('notes')}>Paste Notes</button>
+            <button className={startMode === 'notes' ? 'active' : ''} type="button" onClick={() => setStartMode('notes')}>Customer Message / Notes</button>
           </div>
         </div>
         {startMode === 'notes' ? <div className="admin-quote-intake-fields">
@@ -1423,6 +1502,19 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, sav
           </div>
           <Field label="Original message or call notes"><textarea value={intakeMessage} onChange={(event) => setIntakeMessage(event.target.value)} rows={7} placeholder="Paste the customer message, email text, WhatsApp notes or phone-call notes here." /></Field>
           <Field label="Short summary for Fran"><textarea value={intakeSummary} onChange={(event) => setIntakeSummary(event.target.value)} rows={3} placeholder="e.g. Customer wants 40 black golf shirts, left chest embroidery, deadline still to confirm." /></Field>
+          {aiEnabled && <div className="admin-quote-ai-row">
+            <button className="admin-button primary" type="button" onClick={createAiDraft} disabled={quoteAiBusy || !intakeMessage.trim()}>{quoteAiBusy ? 'Creating Draft...' : 'Create Draft with AI'}</button>
+            <p className="admin-muted">AI can organise the request, but Fran still checks the details and adds pricing.</p>
+          </div>}
+          {quoteAiError && <p className="admin-notice error">{quoteAiError}</p>}
+          {quoteExtraction && <div className="admin-quote-ai-result">
+            <div>
+              <strong>AI draft created</strong>
+              <p>{quoteExtraction.request_summary || 'Review the extracted customer details and draft line items before saving.'}</p>
+            </div>
+            {quoteExtraction.missing_information.length > 0 && <div><span>Missing information</span><ul>{quoteExtraction.missing_information.map((item) => <li key={item}>{item}</li>)}</ul></div>}
+            {quoteExtraction.warnings.length > 0 && <div><span>Review carefully</span><ul>{quoteExtraction.warnings.map((item) => <li key={item}>{item}</li>)}</ul></div>}
+          </div>}
         </div> : <div className="admin-quote-intake-empty">
           <strong>Blank manual quote</strong>
           <p>Use this when Fran already knows the job details and just needs to build the priced quote.</p>
@@ -1472,12 +1564,12 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, sav
   </form>;
 }
 
-function EditQuote({ quoteId, quotes, quoteItems, quoteHistory, quoteRequests, busy, quotesReady, saveQuoteDraft }: { quoteId: string; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; busy: string; quotesReady: boolean; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
+function EditQuote({ quoteId, quotes, quoteItems, quoteHistory, quoteRequests, busy, quotesReady, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { quoteId: string; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; busy: string; quotesReady: boolean; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string; known_customer_data: { name: string; company: string; email: string; phone: string } }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
   if (!quotesReady) return <><PageHeader title="Quotes" eyebrow="Create and manage custom Vert quotes." /><EmptyState title="Quote system migration needed." text="Run the latest Supabase quoting migration before editing quotes." /></>;
   const quote = quotes.find((item) => item.id === quoteId);
   if (busy === 'loading') return <section className="admin-card"><p className="admin-muted">Loading quote...</p></section>;
   if (!quote) return <EmptyState title="Quote not found." text="This quote could not be loaded. Return to the quote list and try again." action={<a className="admin-button secondary" href="/admin/quotes">Back to Quotes</a>} />;
-  return <QuoteEditor mode="edit" quote={quote} request={quote.quote_request_id ? quoteRequests[quote.quote_request_id] : null} items={quoteItems[quote.id] || []} history={quoteHistory[quote.id] || []} busy={busy} saveQuoteDraft={saveQuoteDraft} />;
+  return <QuoteEditor mode="edit" quote={quote} request={quote.quote_request_id ? quoteRequests[quote.quote_request_id] : null} items={quoteItems[quote.id] || []} history={quoteHistory[quote.id] || []} busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />;
 }
 
 function Products({ products, productImages, productCategories, categories, supabase, busy, navigate, togglePublish, uploadProductImage, setPreviewImage, updateProductCategory }: { products: Product[]; productImages: Record<string, ProductImage>; productCategories: ProductCategory[]; categories: Category[]; supabase: SupabaseClient | null; busy: string; navigate: (path: string) => void; togglePublish: (product: Product) => void; uploadProductImage: (product: Product, files: FileList | null) => void; setPreviewImage: (image: { src: string; alt: string } | null) => void; updateProductCategory: (product: Product, categoryId: string) => void }) {
