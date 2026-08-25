@@ -2,6 +2,15 @@
 
 Small follow-up tasks that should be handled in later shop/admin passes.
 
+## SEO Content Follow-Up
+
+- Pause deeper product/category SEO work until Fran has uploaded real catalogue products and removed or unpublished test items.
+- Once real products are live, fill product SEO title, SEO description, short description, full description and primary image alt text for each published product.
+- Add useful category descriptions and SEO descriptions for real categories only.
+- Request Google indexing for the real `/shop/`, category and product URLs after test products are no longer published.
+- Review Product, Offer and Breadcrumb structured data once pricing and product types are final; do not emit misleading Offer data for quote-only products.
+- Keep the dynamic sitemap limited to published, active, non-archived public catalogue items.
+
 ## Admin Images
 
 - Product image cleanup: when an admin updates a product image, delete the previous Supabase Storage object after the product_images.storage_path update succeeds so old files do not accumulate.
