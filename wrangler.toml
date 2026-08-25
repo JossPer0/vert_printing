@@ -5,6 +5,7 @@ compatibility_date = "2026-08-02"
 [vars]
 POSTMARK_FROM_EMAIL = "info@vertprinting.co.za"
 QUOTE_TO_EMAIL = "info@vertprinting.co.za"
+ORDER_TO_EMAIL = "info@vertprinting.co.za, fran@vertprinting.co.za"
 POSTMARK_MESSAGE_STREAM = "outbound"
 AI_PRODUCT_CONTENT_ENABLED = "true"
 OPENAI_MODEL = "gpt-4.1-mini"

@@ -189,7 +189,8 @@ async function verifyTurnstile(token, secret, remoteIp) {
   return response.json();
 }
 async function notify(env, order, items) {
-  if (!env.POSTMARK_SERVER_TOKEN || !env.POSTMARK_FROM_EMAIL || !env.QUOTE_TO_EMAIL) return;
+  const orderRecipient = env.ORDER_TO_EMAIL || env.QUOTE_TO_EMAIL;
+  if (!env.POSTMARK_SERVER_TOKEN || !env.POSTMARK_FROM_EMAIL || !orderRecipient || !env.QUOTE_TO_EMAIL) return;
   const businessResponse = await fetch(POSTMARK_API_URL, {
     method: "POST",
     headers: {
@@ -198,7 +199,7 @@ async function notify(env, order, items) {
     },
     body: JSON.stringify({
       From: env.POSTMARK_FROM_EMAIL,
-      To: env.QUOTE_TO_EMAIL,
+      To: orderRecipient,
       ReplyTo: order.customer_email,
       Subject: `Order request ${order.order_number}`,
       TextBody: buildOrderText(order, items),
