@@ -2018,6 +2018,88 @@ h3 {
   grid-template-columns: minmax(180px, auto) minmax(0, 1fr);
 }
 
+.admin-quote-intake-preview {
+  border-left: 4px solid var(--admin-teal);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #f7fbfa;
+}
+
+.admin-quote-intake-preview strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--admin-teal);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.admin-quote-intake-preview p {
+  margin: 0;
+  color: var(--admin-muted);
+}
+
+.admin-quote-intake-card {
+  border-left: 4px solid rgba(236, 22, 140, 0.65);
+}
+
+.admin-choice-toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  padding: 5px;
+  background: #fbfaf7;
+}
+
+.admin-choice-toggle button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  color: var(--admin-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.admin-choice-toggle button:hover,
+.admin-choice-toggle button:focus-visible {
+  color: var(--admin-pink);
+  outline: none;
+}
+
+.admin-choice-toggle button.active {
+  color: #fff;
+  background: var(--admin-pink);
+  box-shadow: 0 6px 16px rgba(236, 22, 140, 0.2);
+}
+
+.admin-quote-intake-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-quote-intake-empty {
+  border: 1px dashed #d8d2c8;
+  border-radius: 10px;
+  padding: 16px;
+  background: #fbfaf7;
+}
+
+.admin-quote-intake-empty strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.admin-quote-intake-empty p {
+  margin: 0;
+  color: var(--admin-muted);
+}
+
 .admin-quote-tax-toggle {
   align-self: center;
   min-height: 44px;
@@ -2539,6 +2621,15 @@ h3 {
 
   .admin-order-tabs button {
     flex: 1 1 150px;
+  }
+
+  .admin-choice-toggle {
+    width: 100%;
+    border-radius: 10px;
+  }
+
+  .admin-choice-toggle button {
+    flex: 1 1 140px;
   }
 
   .admin-order-collapsible > .admin-order-summary {

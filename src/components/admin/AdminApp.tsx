@@ -142,6 +142,22 @@ type Quote = {
   updated_at: string;
 };
 
+type QuoteRequest = {
+  id: string;
+  source: QuoteSource;
+  status: 'new_request' | 'ai_prepared' | 'draft' | 'cancelled';
+  customer_name: string | null;
+  company_name: string | null;
+  email: string | null;
+  phone: string | null;
+  subject: string | null;
+  raw_message: string | null;
+  summary: string | null;
+  requested_by_date: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type QuoteItem = {
   id?: string;
   quote_id?: string;
@@ -167,6 +183,7 @@ type QuoteStatusHistory = {
 };
 
 type QuoteDraftPayload = {
+  quote_request_id?: string | null;
   source: QuoteSource;
   status: QuoteStatus;
   customer_name: string;
@@ -185,6 +202,15 @@ type QuoteDraftPayload = {
   customer_note: string | null;
   internal_note: string | null;
   terms_text: string | null;
+};
+
+type QuoteIntakePayload = {
+  enabled: boolean;
+  request_id: string | null;
+  raw_message: string;
+  summary: string;
+  subject: string;
+  requested_by_date: string;
 };
 
 type ProductInfoState = {
@@ -322,6 +348,8 @@ const QUOTE_STATUSES: { value: QuoteStatus; label: string; tone: 'success' | 'ne
 const QUOTE_SOURCES: { value: QuoteSource; label: string }[] = [
   { value: 'manual', label: 'Manual' },
   { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'gmail', label: 'Gmail / Email' },
+  { value: 'website', label: 'Website' },
   { value: 'phone', label: 'Phone' },
   { value: 'walk_in', label: 'Walk-in' },
   { value: 'other', label: 'Other' },
@@ -333,6 +361,14 @@ const statusTone = (status: string) => ORDER_STATUSES.find((item) => item.value 
 const quoteStatusLabel = (status: string) => QUOTE_STATUSES.find((item) => item.value === status)?.label || titleCase(status);
 const quoteStatusTone = (status: string) => QUOTE_STATUSES.find((item) => item.value === status)?.tone || 'neutral';
 const quoteSourceLabel = (source: string) => QUOTE_SOURCES.find((item) => item.value === source)?.label || titleCase(source);
+const quoteIntakeHelp = (source: QuoteSource) => {
+  if (source === 'whatsapp') return 'Paste the WhatsApp message or conversation notes exactly as received. AI extraction comes later; for now this preserves the original request.';
+  if (source === 'phone') return 'Type the important call notes while they are fresh: product, quantity, colours, branding, deadline and missing details.';
+  if (source === 'walk_in') return 'Capture the walk-in enquiry so the quote still has a clear starting point.';
+  if (source === 'gmail') return 'Paste the relevant email text manually for now. Label-based Gmail import is a later step.';
+  if (source === 'website') return 'Website quote form intake will be wired later. For now, use this only when entering a website enquiry manually.';
+  return 'Use this for any rough notes that should stay attached to the quote.';
+};
 
 const slugify = (value: string) =>
   value
@@ -408,6 +444,7 @@ export default function AdminApp() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [quoteItems, setQuoteItems] = useState<Record<string, QuoteItem[]>>({});
   const [quoteHistory, setQuoteHistory] = useState<Record<string, QuoteStatusHistory[]>>({});
+  const [quoteRequests, setQuoteRequests] = useState<Record<string, QuoteRequest>>({});
   const [quotesReady, setQuotesReady] = useState(true);
   const [categoryName, setCategoryName] = useState('');
   const [categorySlug, setCategorySlug] = useState('');
@@ -473,6 +510,7 @@ export default function AdminApp() {
       setQuotes([]);
       setQuoteItems({});
       setQuoteHistory({});
+      setQuoteRequests({});
       setImageAltText('');
     }
   }
@@ -580,7 +618,8 @@ export default function AdminApp() {
       const quoteRows = (quoteResult.data || []) as Quote[];
       setQuotes(quoteRows);
       if (quoteRows.length) {
-        const [quoteItemResult, quoteHistoryResult] = await Promise.all([
+        const linkedRequestIds = quoteRows.map((quote) => quote.quote_request_id).filter((id): id is string => Boolean(id));
+        const [quoteItemResult, quoteHistoryResult, quoteRequestResult] = await Promise.all([
           client
             .from('quote_items')
             .select('id,quote_id,sort_order,product_id,description,sku,quantity,unit_price,line_subtotal,discount_amount,line_total,taxable')
@@ -591,6 +630,12 @@ export default function AdminApp() {
             .select('id,quote_id,old_status,new_status,note,created_at')
             .in('quote_id', quoteRows.map((quote) => quote.id))
             .order('created_at', { ascending: false }),
+          linkedRequestIds.length
+            ? client
+              .from('quote_requests')
+              .select('id,source,status,customer_name,company_name,email,phone,subject,raw_message,summary,requested_by_date,created_at,updated_at')
+              .in('id', linkedRequestIds)
+            : Promise.resolve({ data: [], error: null }),
         ]);
         if (quoteItemResult.error) setQuoteItems({});
         else {
@@ -604,15 +649,23 @@ export default function AdminApp() {
           for (const row of quoteHistoryResult.data || []) grouped[row.quote_id] = [...(grouped[row.quote_id] || []), row as QuoteStatusHistory];
           setQuoteHistory(grouped);
         }
+        if (quoteRequestResult.error) setQuoteRequests({});
+        else {
+          const grouped: Record<string, QuoteRequest> = {};
+          for (const request of quoteRequestResult.data || []) grouped[request.id] = request as QuoteRequest;
+          setQuoteRequests(grouped);
+        }
       } else {
         setQuoteItems({});
         setQuoteHistory({});
+        setQuoteRequests({});
       }
     } else {
       setQuotesReady(false);
       setQuotes([]);
       setQuoteItems({});
       setQuoteHistory({});
+      setQuoteRequests({});
     }
     setBusy('');
   }
@@ -921,7 +974,7 @@ export default function AdminApp() {
     setBusy('');
   }
 
-  async function saveQuoteDraft(quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[]) {
+  async function saveQuoteDraft(quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) {
     if (!supabase) return;
     if (!payload.customer_name.trim()) {
       setNotice({ type: 'error', text: 'Add a customer name before saving the quote.' });
@@ -953,8 +1006,37 @@ export default function AdminApp() {
 
     setBusy('quote-save');
     const existing = quoteId ? quotes.find((quote) => quote.id === quoteId) : null;
+    let quoteRequestId = payload.quote_request_id || existing?.quote_request_id || null;
+
+    if (intake?.enabled) {
+      const requestBody = {
+        source: payload.source,
+        status: 'draft',
+        customer_name: payload.customer_name.trim(),
+        company_name: cleanText(payload.company_name || ''),
+        email: cleanText(payload.email || ''),
+        phone: cleanText(payload.phone || ''),
+        subject: cleanText(intake.subject || ''),
+        raw_message: cleanText(intake.raw_message || ''),
+        summary: cleanText(intake.summary || ''),
+        requested_by_date: intake.requested_by_date || null,
+      };
+      const requestResult = intake.request_id || quoteRequestId
+        ? await supabase.from('quote_requests').update(requestBody).eq('id', intake.request_id || quoteRequestId).select('id').single()
+        : await supabase.from('quote_requests').insert(requestBody).select('id').single();
+      if (requestResult.error || !requestResult.data?.id) {
+        await handleAppError(requestResult.error?.message || 'The quote notes could not be saved.');
+        setBusy('');
+        return;
+      }
+      quoteRequestId = requestResult.data.id;
+    } else if (!intake?.enabled && intake?.request_id) {
+      quoteRequestId = intake.request_id;
+    }
+
     const quoteBody = {
       ...payload,
+      quote_request_id: quoteRequestId,
       customer_name: payload.customer_name.trim(),
       subtotal: roundMoney(payload.subtotal),
       discount_total: roundMoney(payload.discount_total),
@@ -1051,9 +1133,9 @@ export default function AdminApp() {
         {view === 'edit-product' && <EditProduct products={products} productSpecifications={productSpecifications} productModelAnalysis={productModelAnalysis} busy={busy} updateProduct={updateProduct} loadProductForm={loadProductForm} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} productId={selectedEditProductId} primaryImageUrl={selectedEditImageUrl} imageAltText={imageAltText} setImageAltText={setImageAltText} supabase={supabase} onModelSaved={(analysis) => setProductModelAnalysis((current) => ({ ...current, [selectedEditProductId]: analysis }))} />}
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} updateCategory={updateCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} categoryDescription={categoryDescription} setCategoryDescription={setCategoryDescription} categorySeoTitle={categorySeoTitle} setCategorySeoTitle={setCategorySeoTitle} categorySeoDescription={categorySeoDescription} setCategorySeoDescription={setCategorySeoDescription} />}
         {view === 'orders' && <Orders orders={orders} orderItems={orderItems} orderHistory={orderHistory} busy={busy} refresh={() => loadData()} updateOrderStatus={updateOrderStatus} />}
-        {view === 'quotes' && <Quotes quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quotesReady={quotesReady} busy={busy} refresh={() => loadData()} />}
+        {view === 'quotes' && <Quotes quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} quotesReady={quotesReady} busy={busy} refresh={() => loadData()} />}
         {view === 'new-quote' && <QuoteEditor mode="new" busy={busy} saveQuoteDraft={saveQuoteDraft} />}
-        {view === 'edit-quote' && <EditQuote quoteId={selectedEditQuoteId} quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} busy={busy} quotesReady={quotesReady} saveQuoteDraft={saveQuoteDraft} />}
+        {view === 'edit-quote' && <EditQuote quoteId={selectedEditQuoteId} quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} busy={busy} quotesReady={quotesReady} saveQuoteDraft={saveQuoteDraft} />}
       </main>
     </div>
     {previewImage && <div className="admin-image-modal" role="dialog" aria-modal="true" aria-label="Product image preview" onClick={() => setPreviewImage(null)}><div><button type="button" aria-label="Close image preview" onClick={() => setPreviewImage(null)}>Close</button><img src={previewImage.src} alt={previewImage.alt} /></div></div>}
@@ -1136,7 +1218,7 @@ function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderSt
   </>;
 }
 
-function Quotes({ quotes, quoteItems, quoteHistory, quotesReady, busy, refresh }: { quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quotesReady: boolean; busy: string; refresh: () => void }) {
+function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, busy, refresh }: { quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; quotesReady: boolean; busy: string; refresh: () => void }) {
   const draftCount = quotes.filter((quote) => quote.status === 'draft').length;
   const readyCount = quotes.filter((quote) => quote.status === 'ready_to_send').length;
   const recentValue = quotes.reduce((sum, quote) => sum + Number(quote.grand_total || 0), 0);
@@ -1157,11 +1239,13 @@ function Quotes({ quotes, quoteItems, quoteHistory, quotesReady, busy, refresh }
       {quotes.map((quote) => {
         const items = quoteItems[quote.id] || [];
         const history = quoteHistory[quote.id] || [];
+        const request = quote.quote_request_id ? quoteRequests[quote.quote_request_id] : null;
         return <article className="admin-order-card admin-quote-card" key={quote.id}>
           <div className="admin-order-summary">
             <div><span className="admin-order-number">{quote.quote_number}</span><h2>{quote.customer_name}</h2><p>{quoteSourceLabel(quote.source)} · {formatDateTime(quote.created_at)}</p></div>
             <div className="admin-order-total"><Badge tone={quoteStatusTone(quote.status)}>{quoteStatusLabel(quote.status)}</Badge><strong>{formatMoney(Number(quote.grand_total))}</strong></div>
           </div>
+          {request?.summary && <div className="admin-quote-intake-preview"><strong>Intake notes</strong><p>{request.summary}</p></div>}
           <div className="admin-order-grid">
             <div>
               <h3>Customer</h3>
@@ -1203,9 +1287,14 @@ function blankQuoteItem(sortOrder = 0): QuoteItem {
   };
 }
 
-function QuoteEditor({ mode, quote, items = [], history = [], busy, saveQuoteDraft }: { mode: 'new' | 'edit'; quote?: Quote; items?: QuoteItem[]; history?: QuoteStatusHistory[]; busy: string; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[]) => void }) {
+function QuoteEditor({ mode, quote, request, items = [], history = [], busy, saveQuoteDraft }: { mode: 'new' | 'edit'; quote?: Quote; request?: QuoteRequest | null; items?: QuoteItem[]; history?: QuoteStatusHistory[]; busy: string; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
   const [source, setSource] = useState<QuoteSource>(quote?.source || 'manual');
   const [status, setStatus] = useState<QuoteStatus>(quote?.status || 'draft');
+  const [startMode, setStartMode] = useState<'blank' | 'notes'>(request?.raw_message || request?.summary ? 'notes' : 'blank');
+  const [intakeSubject, setIntakeSubject] = useState(request?.subject || '');
+  const [intakeMessage, setIntakeMessage] = useState(request?.raw_message || '');
+  const [intakeSummary, setIntakeSummary] = useState(request?.summary || '');
+  const [requestedByDate, setRequestedByDate] = useState(request?.requested_by_date || '');
   const [customerName, setCustomerName] = useState(quote?.customer_name || '');
   const [companyName, setCompanyName] = useState(quote?.company_name || '');
   const [email, setQuoteEmail] = useState(quote?.email || '');
@@ -1224,6 +1313,11 @@ function QuoteEditor({ mode, quote, items = [], history = [], busy, saveQuoteDra
     if (!quote) return;
     setSource(quote.source);
     setStatus(quote.status);
+    setStartMode(request?.raw_message || request?.summary ? 'notes' : 'blank');
+    setIntakeSubject(request?.subject || '');
+    setIntakeMessage(request?.raw_message || '');
+    setIntakeSummary(request?.summary || '');
+    setRequestedByDate(request?.requested_by_date || '');
     setCustomerName(quote.customer_name || '');
     setCompanyName(quote.company_name || '');
     setQuoteEmail(quote.email || '');
@@ -1237,7 +1331,7 @@ function QuoteEditor({ mode, quote, items = [], history = [], busy, saveQuoteDra
     setInternalNote(quote.internal_note || '');
     setTermsText(quote.terms_text || '');
     setQuoteLines(items.length ? items.map((item, index) => ({ ...item, sort_order: index })) : [blankQuoteItem()]);
-  }, [quote?.id, items.length]);
+  }, [quote?.id, request?.id, items.length]);
 
   const calculatedLines = quoteLines.map((item, index) => {
     const quantity = Math.max(0, Number(item.quantity) || 0);
@@ -1258,7 +1352,9 @@ function QuoteEditor({ mode, quote, items = [], history = [], busy, saveQuoteDra
 
   function submit(event: AdminSubmitEvent) {
     event.preventDefault();
+    const intakeEnabled = startMode === 'notes' || Boolean(request?.id);
     saveQuoteDraft(quote?.id || null, {
+      quote_request_id: request?.id || quote?.quote_request_id || null,
       source,
       status,
       customer_name: customerName,
@@ -1277,7 +1373,14 @@ function QuoteEditor({ mode, quote, items = [], history = [], busy, saveQuoteDra
       customer_note: customerNote || null,
       internal_note: internalNote || null,
       terms_text: termsText || null,
-    }, calculatedLines);
+    }, calculatedLines, {
+      enabled: intakeEnabled,
+      request_id: request?.id || quote?.quote_request_id || null,
+      raw_message: intakeMessage,
+      summary: intakeSummary,
+      subject: intakeSubject,
+      requested_by_date: requestedByDate,
+    });
   }
 
   return <form onSubmit={submit}>
@@ -1300,6 +1403,30 @@ function QuoteEditor({ mode, quote, items = [], history = [], busy, saveQuoteDra
           <Field label="Valid until"><input value={validUntil} onChange={(event) => setValidUntil(event.target.value)} type="date" /></Field>
           <label className="admin-toggle admin-quote-tax-toggle"><input type="checkbox" checked={pricesIncludeTax} onChange={(event) => setPricesIncludeTax(event.target.checked)} /><span>Prices include VAT where applicable</span></label>
         </div>
+      </div>
+      <div className="admin-card admin-card-wide admin-quote-intake-card">
+        <div className="admin-section-heading">
+          <div>
+            <h2>Start From</h2>
+            <p className="admin-muted">Use a blank quote, or keep the original WhatsApp, email, phone or walk-in notes with this draft.</p>
+          </div>
+          <div className="admin-choice-toggle" role="group" aria-label="Quote starting point">
+            <button className={startMode === 'blank' ? 'active' : ''} type="button" onClick={() => setStartMode('blank')}>Blank Quote</button>
+            <button className={startMode === 'notes' ? 'active' : ''} type="button" onClick={() => setStartMode('notes')}>Paste Notes</button>
+          </div>
+        </div>
+        {startMode === 'notes' ? <div className="admin-quote-intake-fields">
+          <p className="admin-muted">{quoteIntakeHelp(source)}</p>
+          <div className="admin-field-grid">
+            <Field label="Enquiry subject"><input value={intakeSubject} onChange={(event) => setIntakeSubject(event.target.value)} placeholder="e.g. 40 embroidered golf shirts" /></Field>
+            <Field label="Requested by"><input value={requestedByDate} onChange={(event) => setRequestedByDate(event.target.value)} type="date" /></Field>
+          </div>
+          <Field label="Original message or call notes"><textarea value={intakeMessage} onChange={(event) => setIntakeMessage(event.target.value)} rows={7} placeholder="Paste the customer message, email text, WhatsApp notes or phone-call notes here." /></Field>
+          <Field label="Short summary for Fran"><textarea value={intakeSummary} onChange={(event) => setIntakeSummary(event.target.value)} rows={3} placeholder="e.g. Customer wants 40 black golf shirts, left chest embroidery, deadline still to confirm." /></Field>
+        </div> : <div className="admin-quote-intake-empty">
+          <strong>Blank manual quote</strong>
+          <p>Use this when Fran already knows the job details and just needs to build the priced quote.</p>
+        </div>}
       </div>
       <div className="admin-card admin-card-wide">
         <div className="admin-section-heading"><div><h2>Line Items</h2><p className="admin-muted">Add the products, branding, setup charges, delivery or other custom work Fran is quoting.</p></div><button className="admin-button secondary" type="button" onClick={() => setQuoteLines([...quoteLines, blankQuoteItem(quoteLines.length)])}>+ Add Line Item</button></div>
@@ -1345,12 +1472,12 @@ function QuoteEditor({ mode, quote, items = [], history = [], busy, saveQuoteDra
   </form>;
 }
 
-function EditQuote({ quoteId, quotes, quoteItems, quoteHistory, busy, quotesReady, saveQuoteDraft }: { quoteId: string; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; busy: string; quotesReady: boolean; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[]) => void }) {
+function EditQuote({ quoteId, quotes, quoteItems, quoteHistory, quoteRequests, busy, quotesReady, saveQuoteDraft }: { quoteId: string; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; busy: string; quotesReady: boolean; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
   if (!quotesReady) return <><PageHeader title="Quotes" eyebrow="Create and manage custom Vert quotes." /><EmptyState title="Quote system migration needed." text="Run the latest Supabase quoting migration before editing quotes." /></>;
   const quote = quotes.find((item) => item.id === quoteId);
   if (busy === 'loading') return <section className="admin-card"><p className="admin-muted">Loading quote...</p></section>;
   if (!quote) return <EmptyState title="Quote not found." text="This quote could not be loaded. Return to the quote list and try again." action={<a className="admin-button secondary" href="/admin/quotes">Back to Quotes</a>} />;
-  return <QuoteEditor mode="edit" quote={quote} items={quoteItems[quote.id] || []} history={quoteHistory[quote.id] || []} busy={busy} saveQuoteDraft={saveQuoteDraft} />;
+  return <QuoteEditor mode="edit" quote={quote} request={quote.quote_request_id ? quoteRequests[quote.quote_request_id] : null} items={quoteItems[quote.id] || []} history={quoteHistory[quote.id] || []} busy={busy} saveQuoteDraft={saveQuoteDraft} />;
 }
 
 function Products({ products, productImages, productCategories, categories, supabase, busy, navigate, togglePublish, uploadProductImage, setPreviewImage, updateProductCategory }: { products: Product[]; productImages: Record<string, ProductImage>; productCategories: ProductCategory[]; categories: Category[]; supabase: SupabaseClient | null; busy: string; navigate: (path: string) => void; togglePublish: (product: Product) => void; uploadProductImage: (product: Product, files: FileList | null) => void; setPreviewImage: (image: { src: string; alt: string } | null) => void; updateProductCategory: (product: Product, categoryId: string) => void }) {
