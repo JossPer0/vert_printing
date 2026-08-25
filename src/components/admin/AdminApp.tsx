@@ -297,6 +297,16 @@ const ORDER_STATUSES: { value: OrderStatus; label: string; tone: 'success' | 'ne
   { value: 'cancelled', label: 'Cancelled', tone: 'neutral' },
 ];
 
+const ORDER_GROUPS: { key: string; label: string; statuses: OrderStatus[] | 'all' }[] = [
+  { key: 'new', label: 'New', statuses: ['new'] },
+  { key: 'needs-input', label: 'Needs Info', statuses: ['awaiting_artwork', 'awaiting_approval'] },
+  { key: 'production', label: 'In Production', statuses: ['in_production'] },
+  { key: 'ready', label: 'Ready / Shipped', statuses: ['ready', 'shipped'] },
+  { key: 'complete', label: 'Complete', statuses: ['completed'] },
+  { key: 'cancelled', label: 'Cancelled', statuses: ['cancelled'] },
+  { key: 'all', label: 'All', statuses: 'all' },
+];
+
 const QUOTE_STATUSES: { value: QuoteStatus; label: string; tone: 'success' | 'neutral' | 'warning' }[] = [
   { value: 'draft', label: 'Draft', tone: 'neutral' },
   { value: 'ready_to_send', label: 'Ready to Send', tone: 'warning' },
@@ -1055,7 +1065,12 @@ function Dashboard({ products, categories, orders, quotes, publishedCount, draft
 }
 
 function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderStatus }: { orders: Order[]; orderItems: Record<string, OrderItem[]>; orderHistory: Record<string, OrderStatusHistory[]>; busy: string; refresh: () => void; updateOrderStatus: (order: Order, status: OrderStatus) => void }) {
+  const [activeGroup, setActiveGroup] = useState(ORDER_GROUPS[0].key);
   const totalValue = orders.reduce((sum, order) => sum + Number(order.grand_total || 0), 0);
+  const selectedGroup = ORDER_GROUPS.find((group) => group.key === activeGroup) || ORDER_GROUPS[0];
+  const visibleOrders = selectedGroup.statuses === 'all' ? orders : orders.filter((order) => selectedGroup.statuses.includes(order.status));
+  const groupCount = (statuses: OrderStatus[] | 'all') => statuses === 'all' ? orders.length : orders.filter((order) => statuses.includes(order.status)).length;
+
   return <>
     <PageHeader title="Orders" eyebrow="Review cart order requests from the website." actions={<button className="admin-button secondary" type="button" onClick={refresh} disabled={busy === 'loading'}>{busy === 'loading' ? 'Refreshing...' : 'Refresh'}</button>} />
     <section className="admin-metrics admin-order-metrics">
@@ -1064,15 +1079,26 @@ function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderSt
       <article><span>In Progress</span><strong>{orders.filter((order) => ['awaiting_artwork', 'awaiting_approval', 'in_production'].includes(order.status)).length}</strong></article>
       <article><span>Recent Value</span><strong>{formatMoney(totalValue)}</strong></article>
     </section>
-    {orders.length ? <section className="admin-orders-list">
-      {orders.map((order) => {
+    {orders.length ? <>
+      <section className="admin-order-tabs" aria-label="Order status filters">
+        {ORDER_GROUPS.map((group) => {
+          const count = groupCount(group.statuses);
+          return <button key={group.key} className={activeGroup === group.key ? 'active' : ''} type="button" onClick={() => setActiveGroup(group.key)} aria-pressed={activeGroup === group.key}>
+            <span>{group.label}</span>
+            <strong>{count}</strong>
+          </button>;
+        })}
+      </section>
+      {visibleOrders.length ? <section className="admin-orders-list">
+      {visibleOrders.map((order) => {
         const items = orderItems[order.id] || [];
         const history = orderHistory[order.id] || [];
-        return <article className="admin-order-card" key={order.id}>
-          <div className="admin-order-summary">
+        return <details className="admin-order-card admin-order-collapsible" key={order.id}>
+          <summary className="admin-order-summary">
             <div><span className="admin-order-number">{order.order_number}</span><h2>{order.customer_name}</h2><p>{formatDateTime(order.created_at)}</p></div>
             <div className="admin-order-total"><Badge tone={statusTone(order.status)}>{statusLabel(order.status)}</Badge><strong>{formatMoney(Number(order.grand_total))}</strong></div>
-          </div>
+          </summary>
+          <div className="admin-order-body">
           <div className="admin-order-grid">
             <div>
               <h3>Customer</h3>
@@ -1102,9 +1128,11 @@ function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderSt
             <Field label="Order status"><select value={order.status} disabled={busy === `order-${order.id}`} onChange={(event) => updateOrderStatus(order, event.target.value as OrderStatus)}>{ORDER_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></Field>
             <div><span>Payment</span><strong>{statusLabel(order.payment_status)}</strong><small>Payment is still handled manually.</small></div>
           </div>
-        </article>;
+          </div>
+        </details>;
       })}
-    </section> : <EmptyState title="No order requests yet." text="Submitted cart orders will appear here with customer details, selected options and status controls." action={<a className="admin-button secondary" href="/shop/">View Shop</a>} />}
+    </section> : <EmptyState title={`No ${selectedGroup.label.toLowerCase()} orders.`} text="Choose another order category or refresh to check for new website orders." />}
+    </> : <EmptyState title="No order requests yet." text="Submitted cart orders will appear here with customer details, selected options and status controls." action={<a className="admin-button secondary" href="/shop/">View Shop</a>} />}
   </>;
 }
 
