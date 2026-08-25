@@ -9,6 +9,9 @@ type Category = {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
   is_active: boolean;
   sort_order: number;
 };
@@ -280,6 +283,9 @@ export default function AdminApp() {
   const [orderItems, setOrderItems] = useState<Record<string, OrderItem[]>>({});
   const [categoryName, setCategoryName] = useState('');
   const [categorySlug, setCategorySlug] = useState('');
+  const [categoryDescription, setCategoryDescription] = useState('');
+  const [categorySeoTitle, setCategorySeoTitle] = useState('');
+  const [categorySeoDescription, setCategorySeoDescription] = useState('');
   const [productName, setProductName] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [basePrice, setBasePrice] = useState('');
@@ -338,7 +344,7 @@ export default function AdminApp() {
     if (!client) return;
     setBusy('loading');
     let [categoryResult, productResult, imageResult, productCategoryResult, specificationResult, modelResult, orderResult] = await Promise.all([
-      client.from('categories').select('id,name,slug,is_active,sort_order').order('sort_order').order('name'),
+      client.from('categories').select('id,name,slug,description,seo_title,seo_description,is_active,sort_order').order('sort_order').order('name'),
       client.from('products').select('id,name,slug,product_type,pricing_mode,base_price,short_description,description,material,dimensions,colour_information,finish,weight,lead_time_text,customisation_information,care_instructions,whats_included,made_to_order_information,seo_title,seo_description,is_published,is_active,requires_artwork,minimum_quantity').order('created_at', { ascending: false }),
       client.from('product_images').select('id,product_id,storage_path,alt_text,sort_order').order('sort_order'),
       client.from('product_categories').select('product_id,category_id'),
@@ -482,12 +488,38 @@ export default function AdminApp() {
     if (!supabase || !categoryName.trim()) return;
     setBusy('category');
     const slug = categorySlug.trim() || slugify(categoryName);
-    const { error } = await supabase.from('categories').insert({ name: categoryName.trim(), slug, is_active: true });
+    const { error } = await supabase.from('categories').insert({
+      name: categoryName.trim(),
+      slug,
+      description: cleanText(categoryDescription),
+      seo_title: cleanText(categorySeoTitle),
+      seo_description: cleanText(categorySeoDescription),
+      is_active: true,
+    });
     if (error) await handleAppError(error.message);
     else setNotice({ type: 'success', text: 'Category created.' });
     if (!error) {
       setCategoryName('');
       setCategorySlug('');
+      setCategoryDescription('');
+      setCategorySeoTitle('');
+      setCategorySeoDescription('');
+      await loadData();
+    }
+    setBusy('');
+  }
+
+  async function updateCategory(category: Category, updates: Pick<Category, 'description' | 'seo_title' | 'seo_description'>) {
+    if (!supabase) return;
+    setBusy(`category-${category.id}`);
+    const { error } = await supabase.from('categories').update({
+      description: cleanText(updates.description || ''),
+      seo_title: cleanText(updates.seo_title || ''),
+      seo_description: cleanText(updates.seo_description || ''),
+    }).eq('id', category.id);
+    if (error) await handleAppError(error.message);
+    else {
+      setNotice({ type: 'success', text: 'Category copy updated.' });
       await loadData();
     }
     setBusy('');
@@ -726,7 +758,7 @@ export default function AdminApp() {
         {view === 'products' && <Products products={products} productImages={productImages} productCategories={productCategories} categories={sortedCategories} supabase={supabase} busy={busy} navigate={navigate} togglePublish={togglePublish} uploadProductImage={uploadProductImage} setPreviewImage={setPreviewImage} updateProductCategory={updateProductCategory} />}
         {view === 'new-product' && <ProductEditor mode="new" busy={busy} onSubmit={createProduct} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} categories={sortedCategories} selectedCategoryId={selectedCategoryId} setSelectedCategoryId={setSelectedCategoryId} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} supabase={supabase} />}
         {view === 'edit-product' && <EditProduct products={products} productSpecifications={productSpecifications} productModelAnalysis={productModelAnalysis} busy={busy} updateProduct={updateProduct} loadProductForm={loadProductForm} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} productId={selectedEditProductId} primaryImageUrl={selectedEditImageUrl} imageAltText={imageAltText} setImageAltText={setImageAltText} supabase={supabase} onModelSaved={(analysis) => setProductModelAnalysis((current) => ({ ...current, [selectedEditProductId]: analysis }))} />}
-        {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} />}
+        {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} updateCategory={updateCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} categoryDescription={categoryDescription} setCategoryDescription={setCategoryDescription} categorySeoTitle={categorySeoTitle} setCategorySeoTitle={setCategorySeoTitle} categorySeoDescription={categorySeoDescription} setCategorySeoDescription={setCategorySeoDescription} />}
         {view === 'orders' && <Orders orders={orders} orderItems={orderItems} busy={busy} refresh={() => loadData()} updateOrderStatus={updateOrderStatus} />}
       </main>
     </div>
@@ -846,6 +878,40 @@ function EditProduct(props: { products: Product[]; productSpecifications: Record
   return <ProductEditor mode="edit" busy={props.busy} onSubmit={(event) => props.updateProduct(event, product)} productName={props.productName} setProductName={props.setProductName} productType={props.productType} setProductType={props.setProductType} pricingMode={props.pricingMode} setPricingMode={props.setPricingMode} basePrice={props.basePrice} setBasePrice={props.setBasePrice} requiresArtwork={props.requiresArtwork} setRequiresArtwork={props.setRequiresArtwork} productInfo={props.productInfo} setProductInfo={props.setProductInfo} specifications={props.specifications} setSpecifications={props.setSpecifications} aiEnabled={props.aiEnabled} generateAiContent={props.generateAiContent} productId={props.productId} primaryImageUrl={props.primaryImageUrl} imageAltText={props.imageAltText} setImageAltText={props.setImageAltText} supabase={props.supabase} modelAnalysis={props.productModelAnalysis[productId]} onModelSaved={props.onModelSaved} />;
 }
 
-function Categories({ categories, busy, createCategory, categoryName, setCategoryName, categorySlug, setCategorySlug }: { categories: Category[]; busy: string; createCategory: (event: React.FormEvent) => void; categoryName: string; setCategoryName: (value: string) => void; categorySlug: string; setCategorySlug: (value: string) => void }) {
-  return <><PageHeader title="Categories" eyebrow="Organise products in your shop." /><section className="admin-two-col"><div className="admin-card"><h2>Add Category</h2><form onSubmit={createCategory}><Field label="Name"><input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} required /></Field><Field label="Slug" helper="Leave blank to generate from the name."><input value={categorySlug} onChange={(event) => setCategorySlug(event.target.value)} /></Field><button className="admin-button primary" type="submit" disabled={busy === 'category'}>{busy === 'category' ? 'Saving...' : '+ Add Category'}</button></form></div><div className="admin-card"><h2>Category List</h2>{categories.length ? <div className="admin-category-list">{categories.map((category) => <div key={category.id}><div><strong>{category.name}</strong><small>{category.slug}</small></div><Badge tone={category.is_active ? 'success' : 'neutral'}>{category.is_active ? 'Active' : 'Inactive'}</Badge></div>)}</div> : <EmptyState title="No categories yet." text="Create categories to organise future shop products." />}</div></section></>;
+function CategoryCopyEditor({ category, busy, updateCategory }: { category: Category; busy: string; updateCategory: (category: Category, updates: Pick<Category, 'description' | 'seo_title' | 'seo_description'>) => void }) {
+  const [description, setDescription] = useState(category.description || '');
+  const [seoTitle, setSeoTitle] = useState(category.seo_title || '');
+  const [seoDescription, setSeoDescription] = useState(category.seo_description || '');
+
+  useEffect(() => {
+    setDescription(category.description || '');
+    setSeoTitle(category.seo_title || '');
+    setSeoDescription(category.seo_description || '');
+  }, [category]);
+
+  return <form className="admin-category-editor" onSubmit={(event) => { event.preventDefault(); updateCategory(category, { description, seo_title: seoTitle, seo_description: seoDescription }); }}>
+    <div className="admin-category-editor-heading">
+      <div>
+        <strong>{category.name}</strong>
+        <small>{category.slug}</small>
+      </div>
+      <Badge tone={category.is_active ? 'success' : 'neutral'}>{category.is_active ? 'Active' : 'Inactive'}</Badge>
+    </div>
+    <Field label="Category description" helper="Shown on the public category page. Keep it short and useful for customers.">
+      <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
+    </Field>
+    <div className="admin-field-grid">
+      <Field label="SEO title">
+        <input value={seoTitle} onChange={(event) => setSeoTitle(event.target.value)} placeholder={`${category.name} | Vert Printing Shop`} />
+      </Field>
+      <Field label="SEO description">
+        <textarea value={seoDescription} onChange={(event) => setSeoDescription(event.target.value)} rows={3} />
+      </Field>
+    </div>
+    <button className="admin-button secondary" type="submit" disabled={busy === `category-${category.id}`}>{busy === `category-${category.id}` ? 'Saving...' : 'Save Copy'}</button>
+  </form>;
+}
+
+function Categories({ categories, busy, createCategory, updateCategory, categoryName, setCategoryName, categorySlug, setCategorySlug, categoryDescription, setCategoryDescription, categorySeoTitle, setCategorySeoTitle, categorySeoDescription, setCategorySeoDescription }: { categories: Category[]; busy: string; createCategory: (event: React.FormEvent) => void; updateCategory: (category: Category, updates: Pick<Category, 'description' | 'seo_title' | 'seo_description'>) => void; categoryName: string; setCategoryName: (value: string) => void; categorySlug: string; setCategorySlug: (value: string) => void; categoryDescription: string; setCategoryDescription: (value: string) => void; categorySeoTitle: string; setCategorySeoTitle: (value: string) => void; categorySeoDescription: string; setCategorySeoDescription: (value: string) => void }) {
+  return <><PageHeader title="Categories" eyebrow="Organise products and improve category SEO." /><section className="admin-two-col admin-category-layout"><div className="admin-card"><h2>Add Category</h2><form onSubmit={createCategory}><Field label="Name"><input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} required /></Field><Field label="Slug" helper="Leave blank to generate from the name."><input value={categorySlug} onChange={(event) => setCategorySlug(event.target.value)} /></Field><Field label="Category description" helper="Shown on the public category page."><textarea value={categoryDescription} onChange={(event) => setCategoryDescription(event.target.value)} rows={3} /></Field><Field label="SEO title"><input value={categorySeoTitle} onChange={(event) => setCategorySeoTitle(event.target.value)} /></Field><Field label="SEO description"><textarea value={categorySeoDescription} onChange={(event) => setCategorySeoDescription(event.target.value)} rows={3} /></Field><button className="admin-button primary" type="submit" disabled={busy === 'category'}>{busy === 'category' ? 'Saving...' : '+ Add Category'}</button></form></div><div className="admin-card admin-card-wide"><h2>Category Copy</h2><p className="admin-muted">These fields feed the public category pages and their search snippets. Leave blank only for categories that are not ready to be indexed.</p>{categories.length ? <div className="admin-category-copy-list">{categories.map((category) => <CategoryCopyEditor key={category.id} category={category} busy={busy} updateCategory={updateCategory} />)}</div> : <EmptyState title="No categories yet." text="Create categories to organise future shop products." />}</div></section></>;
 }
