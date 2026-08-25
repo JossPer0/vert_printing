@@ -2018,6 +2018,13 @@ h3 {
   grid-template-columns: minmax(180px, auto) minmax(0, 1fr);
 }
 
+.admin-quote-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .admin-quote-intake-preview {
   border-left: 4px solid var(--admin-teal);
   border-radius: 8px;

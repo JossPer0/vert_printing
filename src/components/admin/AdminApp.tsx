@@ -1140,6 +1140,44 @@ export default function AdminApp() {
     setBusy('');
   }
 
+  async function deleteQuote(quote: Quote) {
+    if (!supabase) return;
+    if (!['draft', 'cancelled'].includes(quote.status)) {
+      setNotice({ type: 'error', text: 'Only draft or cancelled quotes can be deleted. Sent and accepted quotes should be kept as business records.' });
+      return;
+    }
+
+    setBusy(`quote-delete-${quote.id}`);
+    const requestId = quote.quote_request_id;
+    const quoteResult = await supabase.from('quotes').delete().eq('id', quote.id);
+    if (quoteResult.error) {
+      await handleAppError(quoteResult.error.message);
+      setBusy('');
+      return;
+    }
+
+    if (requestId) {
+      const linkedQuotes = await supabase.from('quotes').select('id').eq('quote_request_id', requestId).limit(1);
+      if (linkedQuotes.error) {
+        await handleAppError(linkedQuotes.error.message);
+        setBusy('');
+        return;
+      }
+      if (!linkedQuotes.data?.length) {
+        const requestResult = await supabase.from('quote_requests').delete().eq('id', requestId);
+        if (requestResult.error) {
+          await handleAppError(requestResult.error.message);
+          setBusy('');
+          return;
+        }
+      }
+    }
+
+    setNotice({ type: 'success', text: `${quote.quote_number} deleted.` });
+    await loadData();
+    setBusy('');
+  }
+
   function navigate(path: string) {
     window.location.href = path;
   }
@@ -1178,7 +1216,7 @@ export default function AdminApp() {
         {view === 'edit-product' && <EditProduct products={products} productSpecifications={productSpecifications} productModelAnalysis={productModelAnalysis} busy={busy} updateProduct={updateProduct} loadProductForm={loadProductForm} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} productId={selectedEditProductId} primaryImageUrl={selectedEditImageUrl} imageAltText={imageAltText} setImageAltText={setImageAltText} supabase={supabase} onModelSaved={(analysis) => setProductModelAnalysis((current) => ({ ...current, [selectedEditProductId]: analysis }))} />}
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} updateCategory={updateCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} categoryDescription={categoryDescription} setCategoryDescription={setCategoryDescription} categorySeoTitle={categorySeoTitle} setCategorySeoTitle={setCategorySeoTitle} categorySeoDescription={categorySeoDescription} setCategorySeoDescription={setCategorySeoDescription} />}
         {view === 'orders' && <Orders orders={orders} orderItems={orderItems} orderHistory={orderHistory} busy={busy} refresh={() => loadData()} updateOrderStatus={updateOrderStatus} />}
-        {view === 'quotes' && <Quotes quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} quotesReady={quotesReady} busy={busy} refresh={() => loadData()} />}
+        {view === 'quotes' && <Quotes quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} quotesReady={quotesReady} busy={busy} refresh={() => loadData()} deleteQuote={deleteQuote} />}
         {view === 'new-quote' && <QuoteEditor mode="new" busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
         {view === 'edit-quote' && <EditQuote quoteId={selectedEditQuoteId} quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} busy={busy} quotesReady={quotesReady} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
       </main>
@@ -1193,7 +1231,7 @@ function Dashboard({ products, categories, orders, quotes, publishedCount, draft
 
 function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderStatus }: { orders: Order[]; orderItems: Record<string, OrderItem[]>; orderHistory: Record<string, OrderStatusHistory[]>; busy: string; refresh: () => void; updateOrderStatus: (order: Order, status: OrderStatus) => void }) {
   const [activeGroup, setActiveGroup] = useState(ORDER_GROUPS[0].key);
-  const totalValue = orders.reduce((sum, order) => sum + Number(order.grand_total || 0), 0);
+  const activeValue = orders.filter((order) => order.status !== 'cancelled').reduce((sum, order) => sum + Number(order.grand_total || 0), 0);
   const selectedGroup = ORDER_GROUPS.find((group) => group.key === activeGroup) || ORDER_GROUPS[0];
   const visibleOrders = selectedGroup.statuses === 'all' ? orders : orders.filter((order) => selectedGroup.statuses.includes(order.status));
   const groupCount = (statuses: OrderStatus[] | 'all') => statuses === 'all' ? orders.length : orders.filter((order) => statuses.includes(order.status)).length;
@@ -1204,7 +1242,7 @@ function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderSt
       <article><span>Recent Orders</span><strong>{orders.length}</strong></article>
       <article><span>New</span><strong>{orders.filter((order) => order.status === 'new').length}</strong></article>
       <article><span>In Progress</span><strong>{orders.filter((order) => ['awaiting_artwork', 'awaiting_approval', 'in_production'].includes(order.status)).length}</strong></article>
-      <article><span>Recent Value</span><strong>{formatMoney(totalValue)}</strong></article>
+      <article><span>Active Value</span><strong>{formatMoney(activeValue)}</strong></article>
     </section>
     {orders.length ? <>
       <section className="admin-order-tabs" aria-label="Order status filters">
@@ -1263,11 +1301,12 @@ function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderSt
   </>;
 }
 
-function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, busy, refresh }: { quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; quotesReady: boolean; busy: string; refresh: () => void }) {
+function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, busy, refresh, deleteQuote }: { quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; quotesReady: boolean; busy: string; refresh: () => void; deleteQuote: (quote: Quote) => void }) {
   const [activeGroup, setActiveGroup] = useState(QUOTE_GROUPS[0].key);
+  const [confirmDeleteId, setConfirmDeleteId] = useState('');
   const draftCount = quotes.filter((quote) => quote.status === 'draft').length;
   const readyCount = quotes.filter((quote) => quote.status === 'ready_to_send').length;
-  const recentValue = quotes.reduce((sum, quote) => sum + Number(quote.grand_total || 0), 0);
+  const activeValue = quotes.filter((quote) => !['cancelled', 'declined', 'expired'].includes(quote.status)).reduce((sum, quote) => sum + Number(quote.grand_total || 0), 0);
   const selectedGroup = QUOTE_GROUPS.find((group) => group.key === activeGroup) || QUOTE_GROUPS[0];
   const visibleQuotes = selectedGroup.statuses === 'all' ? quotes : quotes.filter((quote) => selectedGroup.statuses.includes(quote.status));
   const groupCount = (statuses: QuoteStatus[] | 'all') => statuses === 'all' ? quotes.length : quotes.filter((quote) => statuses.includes(quote.status)).length;
@@ -1282,7 +1321,7 @@ function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, 
       <article><span>Saved Quotes</span><strong>{quotes.length}</strong></article>
       <article><span>Drafts</span><strong>{draftCount}</strong></article>
       <article><span>Ready</span><strong>{readyCount}</strong></article>
-      <article><span>Recent Value</span><strong>{formatMoney(recentValue)}</strong></article>
+      <article><span>Active Value</span><strong>{formatMoney(activeValue)}</strong></article>
     </section>
     {quotes.length ? <>
       <section className="admin-order-tabs" aria-label="Quote status filters">
@@ -1325,7 +1364,13 @@ function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, 
             {history.length ? <ol>{history.map((entry) => <li key={entry.id}><strong>{quoteStatusLabel(entry.new_status)}</strong><span>{formatDateTime(entry.created_at)}</span>{entry.note && <p>{entry.note}</p>}</li>)}</ol> : <p className="admin-muted">No status history yet.</p>}
           </div>
           <div className="admin-order-actions admin-quote-actions">
-            <a className="admin-button secondary" href={`/admin/quotes?edit=${encodeURIComponent(quote.id)}`}>Edit Quote</a>
+            <div className="admin-quote-action-buttons">
+              <a className="admin-button secondary" href={`/admin/quotes?edit=${encodeURIComponent(quote.id)}`}>Edit Quote</a>
+              {['draft', 'cancelled'].includes(quote.status) && (confirmDeleteId === quote.id ? <>
+                <button className="admin-button danger" type="button" disabled={busy === `quote-delete-${quote.id}`} onClick={() => deleteQuote(quote)}>{busy === `quote-delete-${quote.id}` ? 'Deleting...' : 'Confirm Delete'}</button>
+                <button className="admin-button secondary" type="button" onClick={() => setConfirmDeleteId('')}>Keep Quote</button>
+              </> : <button className="admin-button secondary" type="button" onClick={() => setConfirmDeleteId(quote.id)}>Delete Quote</button>)}
+            </div>
             <div><span>Phase Q1a</span><strong>Manual draft only</strong><small>PDF sending and acceptance come later.</small></div>
           </div>
           </div>
