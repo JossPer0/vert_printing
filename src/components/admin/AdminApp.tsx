@@ -221,6 +221,13 @@ type QuoteExtraction = {
     quantity: number | null;
     notes: string | null;
   }>;
+  quote_options: Array<{
+    label: string;
+    description: string;
+    applies_to: string | null;
+    quantity: number | null;
+    notes: string | null;
+  }>;
   required_date: string | null;
   artwork_present: boolean;
   missing_information: string[];
@@ -1423,6 +1430,7 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiE
         raw_text: intakeMessage,
       });
       setQuoteExtraction(extraction);
+      const quoteOptions = Array.isArray(extraction.quote_options) ? extraction.quote_options : [];
       if (!intakeSummary.trim() && extraction.request_summary) setIntakeSummary(extraction.request_summary);
       if (!requestedByDate && extraction.required_date && /^\d{4}-\d{2}-\d{2}$/.test(extraction.required_date)) setRequestedByDate(extraction.required_date);
       const draftLines = extraction.requested_items
@@ -1432,9 +1440,21 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiE
           quantity: item.quantity && item.quantity > 0 ? item.quantity : 1,
         }))
         .filter((item) => item.description.trim());
-      if (draftLines.length) {
+      const optionLines = quoteOptions
+        .map((option, index) => {
+          const appliesTo = option.applies_to ? ` for ${option.applies_to}` : '';
+          const notes = option.notes ? ` - ${option.notes}` : '';
+          return {
+            ...blankQuoteItem(draftLines.length + index),
+            description: `Optional: ${option.label}${appliesTo} - ${option.description}${notes}`,
+            quantity: option.quantity && option.quantity > 0 ? option.quantity : 1,
+          };
+        })
+        .filter((item) => item.description.trim());
+      const generatedLines = [...draftLines, ...optionLines];
+      if (generatedLines.length) {
         const hasOnlyBlankLine = quoteLines.length === 1 && !quoteLines[0].description.trim() && Number(quoteLines[0].unit_price || 0) === 0;
-        setQuoteLines(hasOnlyBlankLine ? draftLines : [...quoteLines, ...draftLines.map((line, index) => ({ ...line, sort_order: quoteLines.length + index }))]);
+        setQuoteLines(hasOnlyBlankLine ? generatedLines : [...quoteLines, ...generatedLines.map((line, index) => ({ ...line, sort_order: quoteLines.length + index }))]);
       }
     } catch (error) {
       setQuoteAiError(error instanceof Error ? error.message : "We couldn't create a quote draft right now.");
@@ -1527,6 +1547,7 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiE
               <strong>AI draft created</strong>
               <p>{quoteExtraction.request_summary || 'Review the extracted request details and draft line items before saving.'}</p>
             </div>
+            {Array.isArray(quoteExtraction.quote_options) && quoteExtraction.quote_options.length > 0 && <div><span>Quote options noticed</span><ul>{quoteExtraction.quote_options.map((option, index) => <li key={`${option.label}-${index}`}>{option.applies_to ? `${option.label} for ${option.applies_to}: ${option.description}` : `${option.label}: ${option.description}`}</li>)}</ul></div>}
             {quoteExtraction.missing_information.length > 0 && <div><span>Missing information</span><ul>{quoteExtraction.missing_information.map((item) => <li key={item}>{item}</li>)}</ul></div>}
             {quoteExtraction.warnings.length > 0 && <div><span>Review carefully</span><ul>{quoteExtraction.warnings.map((item) => <li key={item}>{item}</li>)}</ul></div>}
           </div>}
