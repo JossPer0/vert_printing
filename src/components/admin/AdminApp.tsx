@@ -103,6 +103,15 @@ type OrderItem = {
   requires_artwork: boolean;
 };
 
+type OrderStatusHistory = {
+  id: string;
+  order_id: string;
+  old_status: string | null;
+  new_status: string;
+  note: string | null;
+  created_at: string;
+};
+
 type ProductInfoState = {
   short_description: string;
   description: string;
@@ -281,6 +290,7 @@ export default function AdminApp() {
   const [productModelAnalysis, setProductModelAnalysis] = useState<Record<string, ModelAnalysis>>({});
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<Record<string, OrderItem[]>>({});
+  const [orderHistory, setOrderHistory] = useState<Record<string, OrderStatusHistory[]>>({});
   const [categoryName, setCategoryName] = useState('');
   const [categorySlug, setCategorySlug] = useState('');
   const [categoryDescription, setCategoryDescription] = useState('');
@@ -336,6 +346,7 @@ export default function AdminApp() {
       setProductModelAnalysis({});
       setOrders([]);
       setOrderItems({});
+      setOrderHistory({});
       setImageAltText('');
     }
   }
@@ -404,21 +415,38 @@ export default function AdminApp() {
       const orderRows = (orderResult.data || []) as Order[];
       setOrders(orderRows);
       if (orderRows.length) {
-        const itemResult = await client
-          .from('order_items')
-          .select('id,order_id,product_name_snapshot,sku_snapshot,options_snapshot,quantity,unit_price,line_total,requires_artwork')
-          .in('order_id', orderRows.map((order) => order.id))
-          .order('created_at');
+        const [itemResult, historyResult] = await Promise.all([
+          client
+            .from('order_items')
+            .select('id,order_id,product_name_snapshot,sku_snapshot,options_snapshot,quantity,unit_price,line_total,requires_artwork')
+            .in('order_id', orderRows.map((order) => order.id))
+            .order('created_at'),
+          client
+            .from('order_status_history')
+            .select('id,order_id,old_status,new_status,note,created_at')
+            .in('order_id', orderRows.map((order) => order.id))
+            .order('created_at', { ascending: false }),
+        ]);
         if (itemResult.error) setOrderItems({});
         else {
           const grouped: Record<string, OrderItem[]> = {};
           for (const item of itemResult.data || []) grouped[item.order_id] = [...(grouped[item.order_id] || []), item as OrderItem];
           setOrderItems(grouped);
         }
-      } else setOrderItems({});
+        if (historyResult.error) setOrderHistory({});
+        else {
+          const grouped: Record<string, OrderStatusHistory[]> = {};
+          for (const row of historyResult.data || []) grouped[row.order_id] = [...(grouped[row.order_id] || []), row as OrderStatusHistory];
+          setOrderHistory(grouped);
+        }
+      } else {
+        setOrderItems({});
+        setOrderHistory({});
+      }
     } else {
       setOrders([]);
       setOrderItems({});
+      setOrderHistory({});
     }
     setBusy('');
   }
@@ -480,6 +508,7 @@ export default function AdminApp() {
     setProductCategories([]);
     setOrders([]);
     setOrderItems({});
+    setOrderHistory({});
     setNotice({ type: 'success', text: 'Signed out.' });
   }
 
@@ -759,7 +788,7 @@ export default function AdminApp() {
         {view === 'new-product' && <ProductEditor mode="new" busy={busy} onSubmit={createProduct} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} categories={sortedCategories} selectedCategoryId={selectedCategoryId} setSelectedCategoryId={setSelectedCategoryId} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} supabase={supabase} />}
         {view === 'edit-product' && <EditProduct products={products} productSpecifications={productSpecifications} productModelAnalysis={productModelAnalysis} busy={busy} updateProduct={updateProduct} loadProductForm={loadProductForm} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} productId={selectedEditProductId} primaryImageUrl={selectedEditImageUrl} imageAltText={imageAltText} setImageAltText={setImageAltText} supabase={supabase} onModelSaved={(analysis) => setProductModelAnalysis((current) => ({ ...current, [selectedEditProductId]: analysis }))} />}
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} updateCategory={updateCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} categoryDescription={categoryDescription} setCategoryDescription={setCategoryDescription} categorySeoTitle={categorySeoTitle} setCategorySeoTitle={setCategorySeoTitle} categorySeoDescription={categorySeoDescription} setCategorySeoDescription={setCategorySeoDescription} />}
-        {view === 'orders' && <Orders orders={orders} orderItems={orderItems} busy={busy} refresh={() => loadData()} updateOrderStatus={updateOrderStatus} />}
+        {view === 'orders' && <Orders orders={orders} orderItems={orderItems} orderHistory={orderHistory} busy={busy} refresh={() => loadData()} updateOrderStatus={updateOrderStatus} />}
       </main>
     </div>
     {previewImage && <div className="admin-image-modal" role="dialog" aria-modal="true" aria-label="Product image preview" onClick={() => setPreviewImage(null)}><div><button type="button" aria-label="Close image preview" onClick={() => setPreviewImage(null)}>Close</button><img src={previewImage.src} alt={previewImage.alt} /></div></div>}
@@ -770,7 +799,7 @@ function Dashboard({ products, categories, orders, publishedCount, draftCount, n
   return <><PageHeader title="Shop Manager" eyebrow="Manage your Vert Printing shop." actions={<><button className="admin-button secondary" onClick={() => navigate('/admin/orders')}>View Orders</button><button className="admin-button primary" onClick={() => navigate('/admin/products/new')}>+ Add Product</button></>} /><section className="admin-metrics"><article><span>Total Products</span><strong>{products.length}</strong></article><article><span>Published Products</span><strong>{publishedCount}</strong></article><article><span>Draft Products</span><strong>{draftCount}</strong></article><article><span>New Orders</span><strong>{newOrderCount}</strong></article></section><section className="admin-card"><h2>Shop overview</h2>{busy === 'loading' ? <p className="admin-muted">Loading shop data...</p> : <p className="admin-muted">Manage catalogue products, categories and the latest {orders.length} submitted order requests.</p>}<p className="admin-muted">Categories: {categories.length}</p></section></>;
 }
 
-function Orders({ orders, orderItems, busy, refresh, updateOrderStatus }: { orders: Order[]; orderItems: Record<string, OrderItem[]>; busy: string; refresh: () => void; updateOrderStatus: (order: Order, status: OrderStatus) => void }) {
+function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderStatus }: { orders: Order[]; orderItems: Record<string, OrderItem[]>; orderHistory: Record<string, OrderStatusHistory[]>; busy: string; refresh: () => void; updateOrderStatus: (order: Order, status: OrderStatus) => void }) {
   const totalValue = orders.reduce((sum, order) => sum + Number(order.grand_total || 0), 0);
   return <>
     <PageHeader title="Orders" eyebrow="Review cart order requests from the website." actions={<button className="admin-button secondary" type="button" onClick={refresh} disabled={busy === 'loading'}>{busy === 'loading' ? 'Refreshing...' : 'Refresh'}</button>} />
@@ -783,6 +812,7 @@ function Orders({ orders, orderItems, busy, refresh, updateOrderStatus }: { orde
     {orders.length ? <section className="admin-orders-list">
       {orders.map((order) => {
         const items = orderItems[order.id] || [];
+        const history = orderHistory[order.id] || [];
         return <article className="admin-order-card" key={order.id}>
           <div className="admin-order-summary">
             <div><span className="admin-order-number">{order.order_number}</span><h2>{order.customer_name}</h2><p>{formatDateTime(order.created_at)}</p></div>
@@ -809,6 +839,10 @@ function Orders({ orders, orderItems, busy, refresh, updateOrderStatus }: { orde
             </div>
           </div>
           {order.customer_note && <div className="admin-order-note"><h3>Customer note</h3><p>{order.customer_note}</p></div>}
+          <div className="admin-order-history">
+            <h3>Order history</h3>
+            {history.length ? <ol>{history.map((entry) => <li key={entry.id}><strong>{statusLabel(entry.new_status)}</strong><span>{formatDateTime(entry.created_at)}</span>{entry.note && <p>{entry.note}</p>}</li>)}</ol> : <p className="admin-muted">No status history yet.</p>}
+          </div>
           <div className="admin-order-actions">
             <Field label="Order status"><select value={order.status} disabled={busy === `order-${order.id}`} onChange={(event) => updateOrderStatus(order, event.target.value as OrderStatus)}>{ORDER_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></Field>
             <div><span>Payment</span><strong>{statusLabel(order.payment_status)}</strong><small>Payment is still handled manually.</small></div>

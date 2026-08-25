@@ -1829,6 +1829,44 @@ h3 {
   white-space: pre-wrap;
 }
 
+.admin-order-history {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.admin-order-history h3 {
+  margin: 0;
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-order-history ol {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-order-history li {
+  display: grid;
+  gap: 3px;
+  border-left: 3px solid rgba(0, 124, 122, 0.28);
+  padding-left: 10px;
+}
+
+.admin-order-history span,
+.admin-order-history p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.86rem;
+}
+
 .admin-order-actions {
   grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
   align-items: end;
@@ -3363,3 +3401,36 @@ h3 {
 }
 @media (max-width:900px) { .cart-layout { grid-template-columns:1fr; } .cart-summary { position:static; } }
 @media (max-width:720px) { .cart-shell { padding-top:34px; } .cart-heading { display:grid; gap:12px; align-items:start; } .cart-heading h1, .cart-heading p, .cart-item-main, .cart-summary, .cart-checkout { min-width:0; } .cart-item { display:grid; gap:12px; } .cart-item > strong { justify-self:start; } .cart-summary > div { align-items:flex-start; } .cart-summary > div strong { text-align:right; white-space:nowrap; } .cart-form-grid { grid-template-columns:1fr; } .cart-checkout { gap:20px; padding:20px; } .cart-fulfilment { padding:14px; } .cart-fulfilment label, .cart-check { grid-template-columns:18px minmax(0, 1fr); gap:9px; } .cart-fulfilment input, .cart-check input { width:17px; height:17px; } .cart-empty, .cart-confirmation { padding:24px 20px; } .cart-empty p, .cart-confirmation p { max-width:28ch; } }
+
+@media (max-width:520px) {
+  .cart-page {
+    overflow-x: hidden;
+  }
+
+  .cart-shell.shop-container {
+    width: calc(100% - 32px);
+    max-width: calc(100% - 32px);
+    min-width: 0;
+  }
+
+  .cart-empty,
+  .cart-confirmation {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .cart-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+  }
+
+  .cart-actions .button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding-inline: 14px;
+  }
+}

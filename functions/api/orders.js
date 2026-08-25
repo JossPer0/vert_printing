@@ -128,6 +128,41 @@ function buildOrderHtml(order, items) {
   `;
 }
 
+function buildCustomerOrderText(order, items) {
+  return [
+    `Thanks, ${order.customer_name}.`,
+    "",
+    `We have received your Vert Printing order request: ${order.order_number}`,
+    "",
+    "Items:",
+    ...items.map((item) => {
+      const options = (item.options_snapshot || []).map((option) => `    - ${option.label}`).join("\n");
+      return `  ${item.quantity} x ${item.product_name_snapshot} - ${money(item.line_total)}${options ? `\n${options}` : ""}`;
+    }),
+    "",
+    `Order total: ${money(order.grand_total)}`,
+    "",
+    "Payment has not been taken online. Vert Printing will confirm payment, artwork and production details before anything goes ahead.",
+    "",
+    "Vert Printing",
+  ].join("\n");
+}
+
+function buildCustomerOrderHtml(order, items) {
+  const rows = items.map((item) => `
+    <tr>
+      <td style="padding:8px;border-bottom:1px solid #eee;">${escapeHtml(item.quantity)} x ${escapeHtml(item.product_name_snapshot)}${(item.options_snapshot || []).length ? `<br><small>${(item.options_snapshot || []).map((option) => escapeHtml(option.label)).join("<br>")}</small>` : ""}</td>
+      <td align="right" style="padding:8px;border-bottom:1px solid #eee;">${money(item.line_total)}</td>
+    </tr>
+  `).join("");
+  return `
+    <h2>Thanks, ${escapeHtml(order.customer_name)}.</h2>
+    <p>We have received your Vert Printing order request <strong>${escapeHtml(order.order_number)}</strong>.</p>
+    <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;min-width:320px;">${rows}<tr><th align="left" style="padding:8px;">Order total</th><th align="right" style="padding:8px;">${money(order.grand_total)}</th></tr></table>
+    <p>Payment has not been taken online. Vert Printing will confirm payment, artwork and production details before anything goes ahead.</p>
+  `;
+}
+
 async function verifyTurnstile(token, secret, remoteIp) {
   if (!secret) return { success: false };
   if (!token) return { success: false };
@@ -143,7 +178,7 @@ async function verifyTurnstile(token, secret, remoteIp) {
 }
 async function notify(env, order, items) {
   if (!env.POSTMARK_SERVER_TOKEN || !env.POSTMARK_FROM_EMAIL || !env.QUOTE_TO_EMAIL) return;
-  const response = await fetch(POSTMARK_API_URL, {
+  const businessResponse = await fetch(POSTMARK_API_URL, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -159,7 +194,25 @@ async function notify(env, order, items) {
       MessageStream: env.POSTMARK_MESSAGE_STREAM || "outbound",
     }),
   });
-  if (!response.ok) console.error("Postmark order notification failed", await response.text());
+  if (!businessResponse.ok) console.error("Postmark order notification failed", await businessResponse.text());
+
+  const customerResponse = await fetch(POSTMARK_API_URL, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-postmark-server-token": env.POSTMARK_SERVER_TOKEN,
+    },
+    body: JSON.stringify({
+      From: env.POSTMARK_FROM_EMAIL,
+      To: order.customer_email,
+      ReplyTo: env.QUOTE_TO_EMAIL,
+      Subject: `Vert Printing order request ${order.order_number}`,
+      TextBody: buildCustomerOrderText(order, items),
+      HtmlBody: buildCustomerOrderHtml(order, items),
+      MessageStream: env.POSTMARK_MESSAGE_STREAM || "outbound",
+    }),
+  });
+  if (!customerResponse.ok) console.error("Postmark customer order confirmation failed", await customerResponse.text());
 }
 
 export async function onRequestPost({ request, env }) {
@@ -181,6 +234,7 @@ export async function onRequestPost({ request, env }) {
   const items = Array.isArray(payload.items) ? payload.items.map(normaliseCartItem).filter((item) => /^[0-9a-f-]{36}$/i.test(item.id)) : [];
   if (!customer) return jsonResponse({ error: "Please complete your contact details." }, 400);
   if (!items.length) return jsonResponse({ error: "Your cart is empty." }, 400);
+  if (payload.terms_accepted !== true) return jsonResponse({ error: "Please confirm that Vert will check payment, artwork and production details before starting." }, 400);
 
   try {
     const productIds = [...new Set(items.map((item) => item.id))];

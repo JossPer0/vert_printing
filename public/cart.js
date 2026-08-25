@@ -28,7 +28,7 @@ function emptyCart() {
 }
 
 function renderConfirmation(orderNumber) {
-  root.innerHTML = `<div class="cart-confirmation"><p class="section-kicker">Order received</p><h1>Thanks, your order request has been sent.</h1><p>Reference <strong>${escapeHtml(orderNumber)}</strong>. We will review the details and confirm collection, delivery and payment before production starts.</p><div class="cart-actions"><a class="button primary" href="/shop/">Continue shopping</a><a class="button secondary" href="/">Back to home</a></div></div>`;
+  root.innerHTML = `<div class="cart-confirmation"><p class="section-kicker">Order received</p><h1>Thanks, your order request has been sent.</h1><p>Reference <strong>${escapeHtml(orderNumber)}</strong>. We will review the details and confirm collection, delivery and payment before production starts.</p><div class="cart-actions"><a class="button primary" href="/shop/">Continue shopping</a><a class="button secondary dark" href="/">Back to home</a></div></div>`;
 }
 
 function render() {
@@ -136,6 +136,7 @@ async function submitOrder(event) {
         },
         fulfilment_method: formData.get('fulfilment_method'),
         customer_note: formData.get('customer_note'),
+        terms_accepted: formData.get('terms') === 'on',
         turnstileToken,
       }),
     });
@@ -143,7 +144,8 @@ async function submitOrder(event) {
     if (!response.ok || !result.ok) throw new Error(result.error || 'We could not send your order request right now.');
     localStorage.removeItem(CART_KEY);
     document.dispatchEvent(new CustomEvent('vert-cart-updated'));
-    renderConfirmation(result.order_number);
+    try { sessionStorage.setItem('vert-last-order-number', result.order_number || ''); } catch { /* Ignore unavailable session storage. */ }
+    window.location.href = `/order/confirmation/?order=${encodeURIComponent(result.order_number || '')}`;
   } catch (error) {
     status.textContent = error.message || 'We could not send your order request right now.';
     window.turnstile?.reset();
