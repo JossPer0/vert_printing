@@ -215,12 +215,6 @@ type QuoteIntakePayload = {
 };
 
 type QuoteExtraction = {
-  customer: {
-    name: string | null;
-    company: string | null;
-    email: string | null;
-    phone: string | null;
-  };
   request_summary: string | null;
   requested_items: Array<{
     description: string;
@@ -916,7 +910,7 @@ export default function AdminApp() {
     return payload.suggestions as AiSuggestions;
   }
 
-  async function extractQuoteDraft(request: { source: QuoteSource; raw_text: string; known_customer_data: { name: string; company: string; email: string; phone: string } }): Promise<QuoteExtraction> {
+  async function extractQuoteDraft(request: { source: QuoteSource; raw_text: string }): Promise<QuoteExtraction> {
     if (!supabase) throw new Error('Shop Manager is not configured.');
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
@@ -1322,7 +1316,7 @@ function blankQuoteItem(sortOrder = 0): QuoteItem {
   };
 }
 
-function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { mode: 'new' | 'edit'; quote?: Quote; request?: QuoteRequest | null; items?: QuoteItem[]; history?: QuoteStatusHistory[]; busy: string; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string; known_customer_data: { name: string; company: string; email: string; phone: string } }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
+function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { mode: 'new' | 'edit'; quote?: Quote; request?: QuoteRequest | null; items?: QuoteItem[]; history?: QuoteStatusHistory[]; busy: string; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
   const [source, setSource] = useState<QuoteSource>(quote?.source || 'manual');
   const [status, setStatus] = useState<QuoteStatus>(quote?.status || 'draft');
   const [startMode, setStartMode] = useState<'blank' | 'notes'>(request?.raw_message || request?.summary ? 'notes' : 'blank');
@@ -1401,13 +1395,8 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiE
       const extraction = await extractQuoteDraft({
         source,
         raw_text: intakeMessage,
-        known_customer_data: { name: customerName, company: companyName, email, phone },
       });
       setQuoteExtraction(extraction);
-      if (!customerName.trim() && extraction.customer.name) setCustomerName(extraction.customer.name);
-      if (!companyName.trim() && extraction.customer.company) setCompanyName(extraction.customer.company);
-      if (!email.trim() && extraction.customer.email) setQuoteEmail(extraction.customer.email);
-      if (!phone.trim() && extraction.customer.phone) setQuotePhone(extraction.customer.phone);
       if (!intakeSummary.trim() && extraction.request_summary) setIntakeSummary(extraction.request_summary);
       if (!requestedByDate && extraction.required_date && /^\d{4}-\d{2}-\d{2}$/.test(extraction.required_date)) setRequestedByDate(extraction.required_date);
       const draftLines = extraction.requested_items
@@ -1504,13 +1493,13 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiE
           <Field label="Short summary for Fran"><textarea value={intakeSummary} onChange={(event) => setIntakeSummary(event.target.value)} rows={3} placeholder="e.g. Customer wants 40 black golf shirts, left chest embroidery, deadline still to confirm." /></Field>
           {aiEnabled && <div className="admin-quote-ai-row">
             <button className="admin-button primary" type="button" onClick={createAiDraft} disabled={quoteAiBusy || !intakeMessage.trim()}>{quoteAiBusy ? 'Creating Draft...' : 'Create Draft with AI'}</button>
-            <p className="admin-muted">AI can organise the request, but Fran still checks the details and adds pricing.</p>
+            <p className="admin-muted">AI receives redacted job notes only. Customer contact details stay in the quote form for Fran to manage.</p>
           </div>}
           {quoteAiError && <p className="admin-notice error">{quoteAiError}</p>}
           {quoteExtraction && <div className="admin-quote-ai-result">
             <div>
               <strong>AI draft created</strong>
-              <p>{quoteExtraction.request_summary || 'Review the extracted customer details and draft line items before saving.'}</p>
+              <p>{quoteExtraction.request_summary || 'Review the extracted request details and draft line items before saving.'}</p>
             </div>
             {quoteExtraction.missing_information.length > 0 && <div><span>Missing information</span><ul>{quoteExtraction.missing_information.map((item) => <li key={item}>{item}</li>)}</ul></div>}
             {quoteExtraction.warnings.length > 0 && <div><span>Review carefully</span><ul>{quoteExtraction.warnings.map((item) => <li key={item}>{item}</li>)}</ul></div>}
@@ -1564,7 +1553,7 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], busy, aiE
   </form>;
 }
 
-function EditQuote({ quoteId, quotes, quoteItems, quoteHistory, quoteRequests, busy, quotesReady, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { quoteId: string; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; busy: string; quotesReady: boolean; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string; known_customer_data: { name: string; company: string; email: string; phone: string } }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
+function EditQuote({ quoteId, quotes, quoteItems, quoteHistory, quoteRequests, busy, quotesReady, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { quoteId: string; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; busy: string; quotesReady: boolean; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
   if (!quotesReady) return <><PageHeader title="Quotes" eyebrow="Create and manage custom Vert quotes." /><EmptyState title="Quote system migration needed." text="Run the latest Supabase quoting migration before editing quotes." /></>;
   const quote = quotes.find((item) => item.id === quoteId);
   if (busy === 'loading') return <section className="admin-card"><p className="admin-muted">Loading quote...</p></section>;
