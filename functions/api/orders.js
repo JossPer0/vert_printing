@@ -175,13 +175,13 @@ function buildCustomerOrderText(order, items) {
 function buildCustomerOrderHtml(order, items) {
   const firstName = escapeHtml(clean(order.customer_name, 160).split(/\s+/)[0] || "there");
   const orderNumber = escapeHtml(order.order_number);
-  const rows = items.map((item) => `
+  const rows = items.map((item, index) => `
     <tr>
-      <td style="padding:18px 0;border-bottom:1px solid #ece8df;vertical-align:top;">
-        <div class="email-word" style="margin:0 0 6px;color:#1f2426;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:700;line-height:1.35;word-break:break-word;">${escapeHtml(item.product_name_snapshot)}</div>
+      <td style="padding:15px 0;${index < items.length - 1 ? "border-bottom:1px solid #ece8df;" : ""}vertical-align:top;">
+        <div class="email-word" style="margin:0 0 4px;color:#1f2426;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:700;line-height:1.35;word-break:break-word;">${escapeHtml(item.product_name_snapshot)}</div>
         <div style="margin:0;color:#667074;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.45;">Qty ${escapeHtml(item.quantity)}</div>
-        <div style="margin:8px 0 0;color:#1f2426;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;line-height:1.35;">${money(item.line_total)}</div>
-        ${(item.options_snapshot || []).length ? `<div class="email-word" style="margin-top:10px;color:#4f5b5f;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;word-break:break-word;">${(item.options_snapshot || []).map((option) => `<div>${escapeHtml(option.label)}</div>`).join("")}</div>` : ""}
+        <div style="margin:6px 0 0;color:#1f2426;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;line-height:1.35;">${money(item.line_total)}</div>
+        ${(item.options_snapshot || []).length ? `<div class="email-word" style="margin-top:9px;color:#4f5b5f;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;word-break:break-word;">${(item.options_snapshot || []).map((option) => `<div style="margin:0 0 2px;">${escapeHtml(option.label)}</div>`).join("")}</div>` : ""}
       </td>
     </tr>
   `).join("");
@@ -204,10 +204,10 @@ function buildCustomerOrderHtml(order, items) {
       <body style="margin:0;padding:0;background:#fbfaf7;-webkit-text-size-adjust:100%;text-size-adjust:100%;">
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background:#fbfaf7;table-layout:fixed;">
           <tr>
-            <td align="center" style="padding:28px 0;">
+            <td align="center" style="padding:20px 0 26px;">
               <table role="presentation" cellpadding="0" cellspacing="0" width="94%" class="email-container" style="border-collapse:collapse;width:94%;max-width:640px;table-layout:fixed;">
                 <tr>
-                  <td style="padding:0 0 18px;">
+                  <td style="padding:0 0 14px;">
                     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
                       <tr>
                         <td style="vertical-align:middle;color:#667074;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.35;">
@@ -237,14 +237,14 @@ function buildCustomerOrderHtml(order, items) {
                         </td>
                       </tr>
                       <tr>
-                        <td class="email-pad" style="padding:6px 28px 0;">
+                        <td class="email-pad" style="padding:4px 28px 0;">
                           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;table-layout:fixed;">
                             ${rows}
                           </table>
                         </td>
                       </tr>
                       <tr>
-                        <td class="email-pad" style="padding:18px 28px 24px;">
+                        <td class="email-pad" style="padding:14px 28px 24px;">
                           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background:#1f2426;border-radius:8px;table-layout:fixed;">
                             <tr>
                               <td style="padding:18px 20px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Order total</td>
@@ -254,10 +254,10 @@ function buildCustomerOrderHtml(order, items) {
                         </td>
                       </tr>
                       <tr>
-                        <td class="email-pad" style="padding:0 28px 28px;">
+                        <td class="email-pad" style="padding:0 28px 30px;">
                           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;border-top:3px solid #ec168c;background:#fbfaf7;">
                             <tr>
-                              <td style="padding:20px;">
+                              <td style="padding:22px 20px 24px;">
                                 <h2 style="margin:0 0 10px;color:#1f2426;font-family:Arial,Helvetica,sans-serif;font-size:16px;letter-spacing:.08em;text-transform:uppercase;">What happens next?</h2>
                                 <p class="email-word" style="margin:0 0 10px;color:#4f5b5f;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;word-break:break-word;">We'll review your order and confirm any outstanding artwork, payment and production details with you.</p>
                                 <p class="email-word" style="margin:0;color:#4f5b5f;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;word-break:break-word;">Nothing will go into production until everything has been confirmed.</p>
@@ -267,7 +267,7 @@ function buildCustomerOrderHtml(order, items) {
                         </td>
                       </tr>
                       <tr>
-                        <td class="email-pad" style="padding:0 28px 30px;">
+                        <td class="email-pad" style="padding:0 28px 32px;">
                           <h2 style="margin:0 0 8px;color:#1f2426;font-family:Arial,Helvetica,sans-serif;font-size:16px;">Need help?</h2>
                           <p class="email-word" style="margin:0;color:#4f5b5f;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;word-break:break-word;">Reply to this email or contact Vert Printing on <a href="mailto:info@vertprinting.co.za" style="color:#007c7a;text-decoration:underline;">info@vertprinting.co.za</a> or <a href="tel:+27662456511" style="color:#007c7a;text-decoration:underline;">+27 66 245 6511</a>.</p>
                         </td>
