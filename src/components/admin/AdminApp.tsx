@@ -392,6 +392,20 @@ const statusTone = (status: string) => ORDER_STATUSES.find((item) => item.value 
 const quoteStatusLabel = (status: string) => QUOTE_STATUSES.find((item) => item.value === status)?.label || titleCase(status);
 const quoteStatusTone = (status: string) => QUOTE_STATUSES.find((item) => item.value === status)?.tone || 'neutral';
 const quoteSourceLabel = (source: string) => QUOTE_SOURCES.find((item) => item.value === source)?.label || titleCase(source);
+const quoteStatusActions = (status: QuoteStatus) => {
+  if (status === 'draft') return [
+    { label: 'Mark Ready', value: 'ready_to_send' as QuoteStatus, className: 'success' },
+    { label: 'Cancel', value: 'cancelled' as QuoteStatus, className: 'danger' },
+  ];
+  if (status === 'ready_to_send') return [
+    { label: 'Reopen Draft', value: 'draft' as QuoteStatus, className: 'secondary' },
+    { label: 'Cancel', value: 'cancelled' as QuoteStatus, className: 'danger' },
+  ];
+  if (status === 'cancelled') return [
+    { label: 'Reopen Draft', value: 'draft' as QuoteStatus, className: 'secondary' },
+  ];
+  return [];
+};
 const quoteIntakeHelp = (source: QuoteSource) => {
   if (source === 'whatsapp') return 'Paste the WhatsApp message or conversation notes exactly as received. AI extraction comes later; for now this preserves the original request.';
   if (source === 'phone') return 'Type the important call notes while they are fresh: product, quantity, colours, branding, deadline and missing details.';
@@ -1027,6 +1041,25 @@ export default function AdminApp() {
     setBusy('');
   }
 
+  async function updateQuoteStatus(quote: Quote, status: QuoteStatus) {
+    if (!supabase || status === quote.status) return;
+    setBusy(`quote-status-${quote.id}`);
+    const updateResult = await supabase.from('quotes').update({ status }).eq('id', quote.id);
+    if (updateResult.error) await handleAppError(updateResult.error.message);
+    else {
+      const historyResult = await supabase.from('quote_status_history').insert({
+        quote_id: quote.id,
+        old_status: quote.status,
+        new_status: status,
+        note: 'Quote status updated in Shop Manager.',
+      });
+      if (historyResult.error) await handleAppError(historyResult.error.message);
+      else setNotice({ type: 'success', text: `${quote.quote_number} moved to ${quoteStatusLabel(status)}.` });
+      await loadData();
+    }
+    setBusy('');
+  }
+
   async function saveQuoteDraft(quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) {
     if (!supabase) return;
     if (!payload.customer_name.trim()) {
@@ -1224,7 +1257,7 @@ export default function AdminApp() {
         {view === 'edit-product' && <EditProduct products={products} productSpecifications={productSpecifications} productModelAnalysis={productModelAnalysis} busy={busy} updateProduct={updateProduct} loadProductForm={loadProductForm} productName={productName} setProductName={setProductName} productType={productType} setProductType={setProductType} pricingMode={pricingMode} setPricingMode={setPricingMode} basePrice={basePrice} setBasePrice={setBasePrice} requiresArtwork={requiresArtwork} setRequiresArtwork={setRequiresArtwork} productInfo={productInfo} setProductInfo={setProductInfo} specifications={specifications} setSpecifications={setSpecifications} aiEnabled={aiEnabled} generateAiContent={generateAiContent} productId={selectedEditProductId} primaryImageUrl={selectedEditImageUrl} imageAltText={imageAltText} setImageAltText={setImageAltText} supabase={supabase} onModelSaved={(analysis) => setProductModelAnalysis((current) => ({ ...current, [selectedEditProductId]: analysis }))} />}
         {view === 'categories' && <Categories categories={sortedCategories} busy={busy} createCategory={createCategory} updateCategory={updateCategory} categoryName={categoryName} setCategoryName={setCategoryName} categorySlug={categorySlug} setCategorySlug={setCategorySlug} categoryDescription={categoryDescription} setCategoryDescription={setCategoryDescription} categorySeoTitle={categorySeoTitle} setCategorySeoTitle={setCategorySeoTitle} categorySeoDescription={categorySeoDescription} setCategorySeoDescription={setCategorySeoDescription} />}
         {view === 'orders' && <Orders orders={orders} orderItems={orderItems} orderHistory={orderHistory} busy={busy} refresh={() => loadData()} updateOrderStatus={updateOrderStatus} />}
-        {view === 'quotes' && <Quotes quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} quotesReady={quotesReady} busy={busy} refresh={() => loadData()} deleteQuote={deleteQuote} />}
+        {view === 'quotes' && <Quotes quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} quotesReady={quotesReady} busy={busy} refresh={() => loadData()} deleteQuote={deleteQuote} updateQuoteStatus={updateQuoteStatus} />}
         {view === 'new-quote' && <QuoteEditor mode="new" products={products} busy={busy} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
         {view === 'edit-quote' && <EditQuote quoteId={selectedEditQuoteId} products={products} quotes={quotes} quoteItems={quoteItems} quoteHistory={quoteHistory} quoteRequests={quoteRequests} busy={busy} quotesReady={quotesReady} aiEnabled={aiEnabled} extractQuoteDraft={extractQuoteDraft} saveQuoteDraft={saveQuoteDraft} />}
       </main>
@@ -1309,7 +1342,7 @@ function Orders({ orders, orderItems, orderHistory, busy, refresh, updateOrderSt
   </>;
 }
 
-function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, busy, refresh, deleteQuote }: { quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; quotesReady: boolean; busy: string; refresh: () => void; deleteQuote: (quote: Quote) => void }) {
+function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, busy, refresh, deleteQuote, updateQuoteStatus }: { quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; quotesReady: boolean; busy: string; refresh: () => void; deleteQuote: (quote: Quote) => void; updateQuoteStatus: (quote: Quote, status: QuoteStatus) => void }) {
   const [activeGroup, setActiveGroup] = useState(QUOTE_GROUPS[0].key);
   const [confirmDeleteId, setConfirmDeleteId] = useState('');
   const draftCount = quotes.filter((quote) => quote.status === 'draft').length;
@@ -1374,18 +1407,31 @@ function Quotes({ quotes, quoteItems, quoteHistory, quoteRequests, quotesReady, 
           <div className="admin-order-actions admin-quote-actions">
             <div className="admin-quote-action-buttons">
               <a className="admin-button secondary" href={`/admin/quotes?edit=${encodeURIComponent(quote.id)}`}>Edit Quote</a>
+              <QuoteStatusControls status={quote.status} busy={busy === `quote-status-${quote.id}`} onChange={(nextStatus) => updateQuoteStatus(quote, nextStatus)} />
               {['draft', 'cancelled'].includes(quote.status) && (confirmDeleteId === quote.id ? <>
                 <button className="admin-button danger" type="button" disabled={busy === `quote-delete-${quote.id}`} onClick={() => deleteQuote(quote)}>{busy === `quote-delete-${quote.id}` ? 'Deleting...' : 'Confirm Delete'}</button>
                 <button className="admin-button secondary" type="button" onClick={() => setConfirmDeleteId('')}>Keep Quote</button>
               </> : <button className="admin-button secondary" type="button" onClick={() => setConfirmDeleteId(quote.id)}>Delete Quote</button>)}
             </div>
-            <div><span>Phase Q1a</span><strong>Manual draft only</strong><small>PDF sending and acceptance come later.</small></div>
+            <div><span>Next phase</span><strong>PDF and sending</strong><small>These actions will be added after quote preview is approved.</small></div>
           </div>
           </div>
         </details>;
       })}
     </section> : <EmptyState title={`No ${selectedGroup.label.toLowerCase()} quotes.`} text="Choose another quote category or create a new manual quote." action={<a className="admin-button primary" href="/admin/quotes/new">+ New Quote</a>} />}
     </> : <EmptyState title="No quotes yet." text="Create a blank quote for a phone call, walk-in or manually priced custom job." action={<a className="admin-button primary" href="/admin/quotes/new">+ New Quote</a>} />}
+  </>;
+}
+
+function QuoteStatusControls({ status, busy, onChange }: { status: QuoteStatus; busy?: boolean; onChange: (status: QuoteStatus) => void }) {
+  const actions = quoteStatusActions(status);
+
+  if (!actions.length) {
+    return <span className="admin-status-note">Tracked status</span>;
+  }
+
+  return <>
+    {actions.map((action) => <button key={action.value} className={`admin-button ${action.className}`} type="button" disabled={busy} onClick={() => onChange(action.value)}>{busy ? 'Updating...' : action.label}</button>)}
   </>;
 }
 
@@ -1427,6 +1473,7 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], products,
   const [termsText, setTermsText] = useState(quote?.terms_text || 'Quote is valid until the date shown. Production starts once artwork, payment and production details have been confirmed.');
   const [quoteLines, setQuoteLines] = useState<QuoteItem[]>(items.length ? items.map((item, index) => ({ ...item, sort_order: index })) : [blankQuoteItem()]);
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!quote) return;
@@ -1574,7 +1621,25 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], products,
   }
 
   return <form onSubmit={submit}>
-    <PageHeader title={mode === 'edit' ? `Quote ${quote?.quote_number || ''}` : 'Create Quote'} eyebrow={mode === 'edit' ? 'Review and update a manual draft quote.' : 'Start a manually priced quote for custom work.'} actions={<><a className="admin-button secondary" href="/admin/quotes">Back to Quotes</a><button className="admin-button primary" type="submit" disabled={busy === 'quote-save'}>{busy === 'quote-save' ? 'Saving...' : 'Save Draft'}</button></>} />
+    <PageHeader title={mode === 'edit' ? `Quote ${quote?.quote_number || ''}` : 'Create Quote'} eyebrow={mode === 'edit' ? 'Review and update a manual draft quote.' : 'Start a manually priced quote for custom work.'} actions={<><a className="admin-button secondary" href="/admin/quotes">Back to Quotes</a><button className="admin-button secondary" type="button" onClick={() => setPreviewOpen(!previewOpen)}>{previewOpen ? 'Hide Preview' : 'Preview Quote'}</button><button className="admin-button primary" type="submit" disabled={busy === 'quote-save'}>{busy === 'quote-save' ? 'Saving...' : 'Save Draft'}</button></>} />
+    {previewOpen && <QuotePreview
+      quoteNumber={quote?.quote_number || 'Draft quote'}
+      status={status}
+      source={source}
+      customerName={customerName}
+      companyName={companyName}
+      email={email}
+      phone={phone}
+      validUntil={validUntil}
+      lines={calculatedLines}
+      subtotal={subtotal}
+      discount={discount}
+      delivery={delivery}
+      tax={tax}
+      total={total}
+      customerNote={customerNote}
+      termsText={termsText}
+    />}
     <section className="admin-quote-editor">
       <div className="admin-card">
         <h2>Customer</h2>
@@ -1589,9 +1654,18 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], products,
         <h2>Quote Details</h2>
         <div className="admin-field-grid">
           <Field label="Source"><select value={source} onChange={(event) => setSource(event.target.value as QuoteSource)}>{QUOTE_SOURCES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></Field>
-          <Field label="Status"><select value={status} onChange={(event) => setStatus(event.target.value as QuoteStatus)}><option value="draft">Draft</option><option value="ready_to_send">Ready to Send</option><option value="cancelled">Cancelled</option></select></Field>
           <Field label="Valid until"><input value={validUntil} onChange={(event) => setValidUntil(event.target.value)} type="date" /></Field>
           <label className="admin-toggle admin-quote-tax-toggle"><input type="checkbox" checked={pricesIncludeTax} onChange={(event) => setPricesIncludeTax(event.target.checked)} /><span>Prices include VAT where applicable</span></label>
+        </div>
+        <div className="admin-quote-status-panel">
+          <div>
+            <span>Quote status</span>
+            <strong>{quoteStatusLabel(status)}</strong>
+            <small>Use these actions instead of raw status values. Save the quote to keep the change.</small>
+          </div>
+          <div className="admin-quote-action-buttons">
+            <QuoteStatusControls status={status} onChange={setStatus} />
+          </div>
         </div>
       </div>
       <div className="admin-card admin-card-wide admin-quote-intake-card">
@@ -1683,6 +1757,64 @@ function QuoteEditor({ mode, quote, request, items = [], history = [], products,
       </div>}
     </section>
   </form>;
+}
+
+function QuotePreview({ quoteNumber, status, source, customerName, companyName, email, phone, validUntil, lines, subtotal, discount, delivery, tax, total, customerNote, termsText }: { quoteNumber: string; status: QuoteStatus; source: QuoteSource; customerName: string; companyName: string; email: string; phone: string; validUntil: string; lines: QuoteItem[]; subtotal: number; discount: number; delivery: number; tax: number; total: number; customerNote: string; termsText: string }) {
+  const visibleLines = lines.filter((item) => item.description.trim() && Number(item.quantity) > 0);
+
+  return <section className="admin-card admin-card-wide admin-quote-preview-wrap" aria-label="Quote preview">
+    <div className="admin-section-heading">
+      <div>
+        <h2>Quote Preview</h2>
+        <p className="admin-muted">Customer-facing preview only. PDF sending and acceptance are later steps.</p>
+      </div>
+      <Badge tone={quoteStatusTone(status)}>{quoteStatusLabel(status)}</Badge>
+    </div>
+    <div className="admin-quote-preview">
+      <header className="admin-quote-preview-head">
+        <div>
+          <span>VERT PRINTING</span>
+          <strong>Kloof, Durban</strong>
+        </div>
+        <div>
+          <span>Quote</span>
+          <strong>{quoteNumber}</strong>
+        </div>
+      </header>
+      <div className="admin-quote-preview-meta">
+        <div>
+          <span>Prepared for</span>
+          <strong>{customerName.trim() || 'Customer name'}</strong>
+          {companyName.trim() && <p>{companyName}</p>}
+          {email.trim() && <p>{email}</p>}
+          {phone.trim() && <p>{phone}</p>}
+        </div>
+        <div>
+          <span>Source</span>
+          <strong>{quoteSourceLabel(source)}</strong>
+          <p>Valid until: {validUntil ? formatDate(validUntil) : 'To be confirmed'}</p>
+        </div>
+      </div>
+      <div className="admin-quote-preview-lines">
+        <div className="admin-quote-preview-line admin-quote-preview-line-head"><span>Item</span><span>Qty</span><span>Unit</span><span>Total</span></div>
+        {visibleLines.length ? visibleLines.map((item, index) => <div className="admin-quote-preview-line" key={`${item.description}-${index}`}>
+          <div><strong>{item.description}</strong>{item.sku && <small>SKU: {item.sku}</small>}</div>
+          <span>{item.quantity}</span>
+          <span>{formatMoney(Number(item.unit_price))}</span>
+          <strong>{formatMoney(Number(item.line_total))}</strong>
+        </div>) : <p className="admin-muted">Add quote lines to preview the customer-facing item list.</p>}
+      </div>
+      <div className="admin-quote-preview-totals">
+        <div><span>Subtotal</span><strong>{formatMoney(subtotal)}</strong></div>
+        {discount > 0 && <div><span>Discount</span><strong>-{formatMoney(discount)}</strong></div>}
+        {delivery > 0 && <div><span>Delivery</span><strong>{formatMoney(delivery)}</strong></div>}
+        {tax > 0 && <div><span>Tax</span><strong>{formatMoney(tax)}</strong></div>}
+        <div className="admin-quote-preview-grand"><span>Quote total</span><strong>{formatMoney(total)}</strong></div>
+      </div>
+      {customerNote.trim() && <div className="admin-quote-preview-note"><span>Note</span><p>{customerNote}</p></div>}
+      {termsText.trim() && <div className="admin-quote-preview-note"><span>Terms</span><p>{termsText}</p></div>}
+    </div>
+  </section>;
 }
 
 function EditQuote({ quoteId, products, quotes, quoteItems, quoteHistory, quoteRequests, busy, quotesReady, aiEnabled, extractQuoteDraft, saveQuoteDraft }: { quoteId: string; products: Product[]; quotes: Quote[]; quoteItems: Record<string, QuoteItem[]>; quoteHistory: Record<string, QuoteStatusHistory[]>; quoteRequests: Record<string, QuoteRequest>; busy: string; quotesReady: boolean; aiEnabled: boolean; extractQuoteDraft: (request: { source: QuoteSource; raw_text: string }) => Promise<QuoteExtraction>; saveQuoteDraft: (quoteId: string | null, payload: QuoteDraftPayload, items: QuoteItem[], intake?: QuoteIntakePayload) => void }) {
